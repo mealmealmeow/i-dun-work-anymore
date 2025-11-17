@@ -79,6 +79,7 @@
     background-color: var(--secondary-bg); 
     box-shadow: 0 18px 45px var(--shadow-color); 
     border-radius: 20px; 
+    /* overflow: hidden; */
     border: 1px solid rgba(255,255,255,0.7);
     backdrop-filter: blur(10px);
   }
@@ -238,6 +239,56 @@
   .page-content.active { 
     display: block; 
   }
+
+  /* ===== Page 1 Sticky Sub-Navigation ===== */
+  .page1-subnav {
+      position: sticky;
+      /* Height of the main nav bar */
+      top: 58px; 
+      z-index: 4;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: linear-gradient(135deg, #f1ece4, #e8f0ea);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.2rem 0;
+  }
+
+  .page1-subnav a {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem 0;
+      color: var(--title-color);
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background-color var(--transition-fast), color var(--transition-fast);
+      position: relative;
+  }
+
+  .page1-subnav a:hover {
+      background-color: rgba(90, 143, 123, 0.15);
+      color: var(--accent-color);
+  }
+
+  .page1-subnav a:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 25%;
+      bottom: 25%;
+      right: 0;
+      width: 1px;
+      background-color: rgba(90, 143, 123, 0.2);
+  }
+
+  @media (max-width: 600px) {
+      .page1-subnav {
+          /* Adjust for smaller screens if nav height changes */
+          top: 54px; 
+      }
+  }
+
 
   /* ===== section 區塊 ===== */
 
@@ -1087,10 +1138,12 @@
       width: 120px;
       min-width: 120px;
   }
+  /* Ensure sticky header cells are on top of sticky column cells */
   #student-overview-table th:nth-child(1),
   #student-overview-table th:nth-child(2) {
       z-index: 4;
   }
+  /* Add background to sticky cells to hide content scrolling underneath */
   #student-overview-table td:nth-child(1),
   #student-overview-table td:nth-child(2) {
       background-color: #fdfbf8;
@@ -1328,52 +1381,6 @@
     color: #888;
   }
 
-  /* ===== Floating Navigation ===== */
-  #floating-nav {
-      position: fixed;
-      top: 50%;
-      right: 15px;
-      transform: translateY(-50%);
-      z-index: 1000;
-      display: none; /* Initially hidden, shown by JS for page 1 */
-      flex-direction: column;
-      gap: 8px;
-      background-color: rgba(255, 253, 248, 0.85);
-      backdrop-filter: blur(8px);
-      padding: 8px;
-      border-radius: 99px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-      border: 1px solid rgba(225, 216, 200, 0.7);
-  }
-
-  #floating-nav a {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background-color: var(--accent-color);
-      color: white;
-      text-decoration: none;
-      font-size: 1.1rem;
-      font-weight: bold;
-      transition: all var(--transition-fast);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-
-  #floating-nav a:hover {
-      background-color: var(--title-color);
-      transform: scale(1.1);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-  }
-  
-  @media (max-width: 1200px) {
-      #floating-nav {
-          display: none; /* Hide on smaller screens to avoid overlap */
-      }
-  }
-
 </style>
 </head>
 <body>
@@ -1400,6 +1407,13 @@
     <main>
       <!-- ==================== 第一頁：評語生成器 ==================== -->
       <div id="page1" class="page-content active">
+        
+        <nav class="page1-subnav">
+            <a href="#step-2-section" title="跳轉到選擇學生">生</a>
+            <a href="#step-3-section" title="跳轉到作文評分">分</a>
+            <a href="#step-3-1-section" title="跳轉到錯別字">字</a>
+            <a href="#step-4-section" title="跳轉到評語項目">評</a>
+        </nav>
         
         <div class="section-box" id="step-1-section">
           <h2>步驟一：基本資料</h2>
@@ -1877,14 +1891,6 @@
     </main>
   </div>
 
-  <!-- Floating Navigation -->
-  <nav id="floating-nav">
-    <a href="#step-2-section" title="跳轉到選擇學生">生</a>
-    <a href="#step-3-section" title="跳轉到作文評分">分</a>
-    <a href="#step-3-1-section" title="跳轉到錯別字">字</a>
-    <a href="#step-4-section" title="跳轉到評語項目">評</a>
-  </nav>
-
   <!-- 自製確認對話框 -->
   <div id="modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal-card" role="document">
@@ -1932,23 +1938,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Welcome message
 function showWelcomeMessage() {
-    confirmUI('又有小可愛在等您翻牌了！', null, '溫馨提示');
+    alertUI('又有小可愛在等您翻牌了！', '溫馨提示');
 }
 
 // Before-leave confirmation
 window.addEventListener('beforeunload', (event) => {
-    // 檢查是否有已儲存的學生資料
     const hasData = allStudentRecords.some(r => r.data);
     if (hasData) {
         const confirmationMessage = '資料尚未匯出，關閉頁面將會遺失所有進度，確定要離開嗎？';
-        event.preventDefault(); // 遵循規範
-        event.returnValue = confirmationMessage; // 對於舊版瀏覽器
-        return confirmationMessage; // 對於現代瀏覽器
+        event.preventDefault();
+        event.returnValue = confirmationMessage;
+        return confirmationMessage;
     }
 });
 
 
-/* ====== 小型 Confirm UI ====== */
+/* ====== Modal UI (Alert & Confirm) ====== */
 const modal = {
   el: null, okBtn: null, cancelBtn: null, textEl: null, titleEl: null, resolve: null,
   init() {
@@ -1959,12 +1964,18 @@ const modal = {
     this.titleEl = document.getElementById('modal-title');
     this.okBtn.addEventListener('click', ()=>{ this.hide(); if (this.resolve) this.resolve(true); });
     this.cancelBtn.addEventListener('click', ()=>{ this.hide(); if (this.resolve) this.resolve(false); });
-    this.el.addEventListener('click', (e)=>{ if (e.target===this.el) { this.hide(); if (this.resolve) this.resolve(false); }});
+    this.el.addEventListener('click', (e)=>{ 
+        if (e.target === this.el) { 
+            this.hide(); 
+            if (this.resolve) this.resolve(false); // Backdrop click is like cancel
+        }
+    });
   },
-  show(message, title = '請確認') {
+  show(message, title = '請確認', showCancel = true) {
     if (!this.el) this.init();
     this.textEl.textContent = message || '請確認';
     this.titleEl.textContent = title;
+    this.cancelBtn.style.display = showCancel ? 'flex' : 'none'; // Control cancel button visibility
     this.el.classList.add('active');
     this.el.setAttribute('aria-hidden', 'false');
     return new Promise(res => { this.resolve = res; });
@@ -1974,8 +1985,17 @@ const modal = {
     this.el.setAttribute('aria-hidden', 'true');
   }
 };
+
+// **MODIFIED**: New function for alert-style (one button) modal
+function alertUI(message, title) {
+    modal.show(message, title, false); // `false` hides the cancel button
+}
+
+// **MODIFIED**: confirmUI now uses the generalized `show` method
 function confirmUI(message, onOk, title) {
-  modal.show(message, title).then(ok => { if (ok && typeof onOk === 'function') onOk(); });
+  modal.show(message, title, true).then(ok => { // `true` shows the cancel button
+      if (ok && typeof onOk === 'function') onOk(); 
+  });
 }
 
 /* ====== 字體大小調整功能 ====== */
@@ -2034,11 +2054,6 @@ function showPage(pageId) {
   document.querySelectorAll('.nav-btn').forEach(n => n.classList.remove('active'));
   document.getElementById('nav-' + pageId).classList.add('active');
 
-  const floatingNav = document.getElementById('floating-nav');
-  if (floatingNav) {
-    floatingNav.style.display = (pageId === 'page1') ? 'flex' : 'none';
-  }
-
   if (pageId === 'page2') {
     buildOverviewPage();
   } else if (pageId === 'page3') {
@@ -2055,6 +2070,7 @@ function showPage(pageId) {
   }
 }
 
+// 全部展開/收合功能
 function toggleAllDetails(containerId, openState) {
   const container = document.getElementById(containerId);
   if (container) {
@@ -2280,21 +2296,6 @@ function attachGlobalListeners() {
       updateAllOutputs();
     }
   });
-
-  const floatingNav = document.getElementById('floating-nav');
-  if (floatingNav) {
-    floatingNav.addEventListener('click', (event) => {
-      const link = event.target.closest('a');
-      if (link) {
-        event.preventDefault();
-        const targetId = link.getAttribute('href');
-        const targetElement = document.querySelector(targetId);
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    });
-  }
 
   const topicInput = document.getElementById('topic');
   const aiTopicInput = document.getElementById('ai-topic');
