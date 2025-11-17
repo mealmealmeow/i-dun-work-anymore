@@ -4,45 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>我不想努力了</title>
+  <!-- 引入 xlsx.js 函式庫，用於處理 Excel 檔案 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
-
-  <script>
-    // 你的 Supabase URL 和 Key (我直接用你檔案入面嗰個)
-    const supabaseUrl = 'https://xosxagywgwcprvopbtwl.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvc3hhZ3l3Z3djcHJ2b3BidHdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNzc2ODgsImV4cCI6MjA3ODk1MzY4OH0.8hL9sC9qErhHI93QaFoy4WQt8tvxemCd2-fqaW6DSRg';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-  </script>
-
   
   <!-- 引入 Google Fonts 的 LXGW WenKai TC (霞鶩文楷 TC) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  const supabase = supabase.createClient(
-    'https://xosxagywgwcprvopbtwl.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvc3hhZ3l3Z3djcHJ2b3BidHdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNzc2ODgsImV4cCI6MjA3ODk1MzY4OH0.8hL9sC9qErhHI93QaFoy4WQt8tvxemCd2-fqaW6DSRg'
-  );
-</script>
-<div id="auth-container" style="display: flex; align-items: center; gap: 10px; margin-left: auto; margin-right: 1rem;">
-  <span id="user-email" style="font-size: 0.9rem; display: none;"></span>
-  <div id="auth-container" style="display: flex; align-items: center; gap: 10px; margin: 10px;">
-  <span id="user-email" style="font-size: 0.9rem; color: #555; display: none;"></span>
-  
-  <button id="btn-login" onclick="window.login()" class="action-btn" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer;">登入雲端</button>
-  
-  <button id="btn-logout" onclick="window.logout()" class="action-btn" style="background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; display: none;">登出</button>
-</div>
-
-<div class="font-controls">
-  ...
-</div>
 <style>
   /* --- 文青風色彩與字體定義 --- */
   :root {
@@ -4983,168 +4952,7 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-<script>
-(function() { // 使用 IIFE 避免變數污染，但將核心功能掛載到 window
-
-  console.log("🚀 Supabase 雲端模組啟動中...");
-
-  // 1. 定義全域變數
-  window.saveTimeout = null;
-
-  // 2. 定義儲存功能 (核彈級寫法：直接掛載 window)
-  window.saveToCloud = async function() {
-    // 檢查是否已登入
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return; // 未登入不執行
-
-    // 防抖動設計
-    clearTimeout(window.saveTimeout);
-    window.saveTimeout = setTimeout(async () => {
-      console.log("☁️ 正在同步到雲端...");
-      
-      // 嘗試獲取全域數據 (兼顧不同寫法)
-      let currentCritiques = [];
-      let currentCommonTypos = [];
-      
-      try { if (typeof critiques !== 'undefined') currentCritiques = critiques; } catch(e) {}
-      try { if (typeof commonTypos !== 'undefined') currentCommonTypos = commonTypos; } catch(e) {}
-
-      const updates = {
-        id: user.id,
-        critiques: currentCritiques,
-        common_typos: currentCommonTypos,
-        updated_at: new Date(),
-      };
-
-      const { error } = await supabase.from('users_data').upsert(updates);
-      
-      // UI 反饋
-      const emailSpan = document.getElementById('user-email');
-      if (error) {
-        console.error('❌ 儲存失敗:', error);
-        if(emailSpan) emailSpan.textContent = "❌ 儲存失敗";
-      } else {
-        console.log('✅ 儲存成功');
-        if(emailSpan) {
-            const originalText = user.email;
-            emailSpan.textContent = "✅ 已儲存";
-            setTimeout(() => { 
-                 // 只有當文字還沒變其他野個陣先變回 Email
-                 if(document.getElementById('user-email').textContent === "✅ 已儲存") {
-                     emailSpan.textContent = originalText; 
-                 }
-            }, 2000);
-        }
-      }
-    }, 1000);
-  };
-
-  // 3. 定義登入功能
-  window.login = async function() {
-    const email = prompt("請輸入 Email 以獲取登入連結 (Magic Link):");
-    if (!email) return;
-    
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: window.location.href }
-    });
-
-    if (error) alert("登入錯誤: " + error.message);
-    else alert("📧 連結已寄出！請檢查 Email (包括垃圾郵件)。");
-  };
-
-  // 4. 定義登出功能
-  window.logout = async function() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  };
-
-  // 5. 定義載入功能
-  window.loadCloudData = async function(userId) {
-    const emailSpan = document.getElementById('user-email');
-    if(emailSpan) emailSpan.textContent = "資料同步中...";
-
-    const { data, error } = await supabase
-      .from('users_data')
-      .select('critiques, common_typos')
-      .eq('id', userId)
-      .single();
-
-    if (data) {
-      console.log("📥 雲端資料下載成功");
-      // 更新全域變數
-      if (data.critiques) {
-          window.critiques = data.critiques; // 強制更新全域
-          if (typeof renderCritiqueList === 'function') renderCritiqueList();
-      }
-      if (data.common_typos) {
-          window.commonTypos = data.common_typos;
-          if (typeof renderCommonTypoList === 'function') renderCommonTypoList();
-      }
-    }
-    
-    // 恢復 Email 顯示
-    const { data: { user } } = await supabase.auth.getUser();
-    if(user && emailSpan) emailSpan.textContent = user.email;
-  };
-
-  // 6. 初始化 & 監聽器 (網頁載入後執行)
-  document.addEventListener('DOMContentLoaded', async () => {
-      
-      // A. 綁定按鈕 (防止 HTML onclick 失效)
-      const btnLogin = document.getElementById('btn-login');
-      const btnLogout = document.getElementById('btn-logout');
-      if(btnLogin) {
-          btnLogin.onclick = window.login; // 直接覆蓋點擊事件
-          btnLogin.style.display = 'block'; // 預設顯示
-      }
-      if(btnLogout) {
-          btnLogout.onclick = window.logout;
-          btnLogout.style.display = 'none'; // 預設隱藏
-      }
-
-      // B. 監聽 Supabase 登入狀態
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        const user = session?.user;
-        const emailSpan = document.getElementById('user-email');
-
-        if (user) {
-          // === 已登入 ===
-          if(btnLogin) btnLogin.style.display = 'none';
-          if(btnLogout) btnLogout.style.display = 'inline-block';
-          if(emailSpan) {
-            emailSpan.style.display = 'inline-block';
-            emailSpan.textContent = user.email;
-          }
-          // 載入資料
-          await window.loadCloudData(user.id);
-        } else {
-          // === 未登入 ===
-          if(btnLogin) btnLogin.style.display = 'inline-block';
-          if(btnLogout) btnLogout.style.display = 'none';
-          if(emailSpan) emailSpan.style.display = 'none';
-        }
-      });
-
-      // C. 全域打字監聽 (最強力的自動儲存)
-      document.body.addEventListener('input', function(e) {
-          // 只要不是登入框的輸入，都觸發儲存
-          if(e.target.id !== 'user-email') {
-              window.saveToCloud();
-          }
-      });
-
-      // D. 攔截舊有儲存函數 (雙重保險)
-      if(typeof window.persistCritiques !== 'undefined') {
-          const oldFn = window.persistCritiques;
-          window.persistCritiques = function() {
-              oldFn.apply(this, arguments);
-              window.saveToCloud();
-          }
-      }
-  });
-
-})();
 </script>
+
 </body>
 </html>
