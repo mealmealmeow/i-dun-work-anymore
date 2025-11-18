@@ -1358,6 +1358,7 @@
                 <textarea id="student-names" rows="8" placeholder="01-陳大文&#10;02 張小美&#10;李偉明"></textarea>
               </div>
               <div class="btn-group" style="margin-top: 0.5rem;">
+                <button id="select-project-btn" class="secondary-btn" style="display: none;">從雲端選取專案</button>
                 <button class="light-btn" onclick="downloadStudentListTemplate()">下載範本</button>
                 <label class="light-btn brown" for="import-student-list" style="cursor: pointer;">匯入學生名單 (Excel)</label>
                 <input type="file" id="import-student-list" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;">
@@ -1939,6 +1940,7 @@ async function checkUser() {
       loadDataFromCloud();
     } else if (event === 'SIGNED_OUT') {
       // 登出後，清空雲端資料，還原到初始狀態
+      sessionStorage.removeItem('projectPromptShownThisSession'); // 清除 session 標記
       commonTypos = [];
       allStudentRecords = [];
       parseLocalCritiques(); // 重新載入預設評語
@@ -1995,7 +1997,8 @@ async function loadDataFromCloud() {
     // 1. 載入評語庫
     const { data: critiquesData, error: critiquesError } = await supabaseClient
       .from('critiques')
-      .select('*');
+      .select('*')
+      .eq('user_id', currentUser.id);
     if (critiquesError) throw critiquesError;
 
     if (critiquesData.length > 0) {
@@ -2024,42 +2027,16 @@ async function loadDataFromCloud() {
     // 2. 載入常見錯別字
     const { data: typosData, error: typosError } = await supabaseClient
       .from('common_typos')
-      .select('*');
+      .select('*')
+      .eq('user_id', currentUser.id);
     if (typosError) throw typosError;
     commonTypos = typosData.map(t => ({ id: t.typo_id, wrong: t.wrong, correct: t.correct }));
     renderCommonTypoList();
 
-    // 3. 載入學生專案進度
-    const { data: projectsData, error: projectsError } = await supabaseClient
-      .from('student_projects')
-      .select('id, class_name, topic, updated_at');
-    if (projectsError) throw projectsError;
-    
-    if (projectsData.length > 0) {
-        let projectChoices = projectsData
-            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-            .map((p, i) => `${i + 1}. 班別: ${p.class_name || '未命名'}, 題目: ${p.topic || '未命名'} (更新於: ${new Date(p.updated_at).toLocaleString()})`)
-            .join('\n');
-        
-        const choice = prompt(`在雲端找到 ${projectsData.length} 個專案，你想載入邊一個？\n請輸入數字，或留空以開始新專案。\n\n${projectChoices}`);
-        const choiceIndex = parseInt(choice, 10) - 1;
-
-        if (!isNaN(choiceIndex) && choiceIndex >= 0 && choiceIndex < projectsData.length) {
-            const projectId = projectsData[choiceIndex].id;
-            const { data: fullProject, error: fullProjectError } = await supabaseClient
-                .from('student_projects')
-                .select('project_data, class_name, topic')
-                .eq('id', projectId)
-                .single();
-            if (fullProjectError) throw fullProjectError;
-
-            allStudentRecords = fullProject.project_data || [];
-            document.getElementById('student-class').value = fullProject.class_name || '';
-            document.getElementById('topic').value = fullProject.topic || '';
-            document.getElementById('student-names').value = allStudentRecords.map(r => r.originalName).join('\n');
-            updateStudentDropdown();
-            renderStudentOverviewTable();
-        }
+    // 3. 載入學生專案進度 (只在 session 第一次載入時詢問)
+    if (!sessionStorage.getItem('projectPromptShownThisSession')) {
+        await promptAndLoadCloudProject();
+        sessionStorage.setItem('projectPromptShownThisSession', 'true');
     }
     
     isDataDirty = false;
@@ -2071,6 +2048,78 @@ async function loadDataFromCloud() {
     authStatus.textContent = `讀取錯誤`;
   }
 }
+
+/**
+ * [新增] 提取並顯示雲端專案列表供用戶選擇
+ */
+async function promptAndLoadCloudProject() {
+    if (!currentUser) {
+        alert("請先登入以使用雲端專案功能。");
+        return;
+    }
+
+    const { data: projectsData, error: projectsError } = await supabaseClient
+        .from('student_projects')
+        .select('id, class_name, topic, updated_at')
+        .eq('user_id', currentUser.id);
+
+    if (projectsError) {
+        alert(`讀取雲端專案列表時出錯：${projectsError.message}`);
+        return;
+    }
+
+    if (!projectsData || projectsData.length === 0) {
+        alert("雲端上沒有找到任何專案。");
+        return;
+    }
+
+    let projectChoices = projectsData
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+        .map((p, i) => `${i + 1}. 班別: ${p.class_name || '未命名'}, 題目: ${p.topic || '未命名'} (更新於: ${new Date(p.updated_at).toLocaleString()})`)
+        .join('\n');
+    
+    const choice = prompt(`在雲端找到 ${projectsData.length} 個專案，你想載入哪一個？\n請輸入數字，或按「取消」以繼續使用目前資料。\n\n${projectChoices}`);
+    const choiceIndex = parseInt(choice, 10) - 1;
+
+    if (!isNaN(choiceIndex) && choiceIndex >= 0 && choiceIndex < projectsData.length) {
+        const projectId = projectsData[choiceIndex].id;
+        try {
+            const { data: fullProject, error: fullProjectError } = await supabaseClient
+                .from('student_projects')
+                .select('project_data, class_name, topic')
+                .eq('id', projectId)
+                .single();
+
+            if (fullProjectError) throw fullProjectError;
+
+            // 清空當前狀態以載入新專案
+            clearAllCore(false);
+            allStudentRecords = [];
+            document.getElementById('student-names').value = '';
+
+            // 載入新專案資料
+            allStudentRecords = fullProject.project_data || [];
+            document.getElementById('student-class').value = fullProject.class_name || '';
+            document.getElementById('topic').value = fullProject.topic || '';
+            document.getElementById('student-names').value = allStudentRecords.map(r => r.originalName).join('\n');
+            
+            updateStudentDropdown();
+            renderStudentOverviewTable();
+            
+            // 自動載入第一位學生資料
+            const studentSelect = document.getElementById('student-select');
+            if (studentSelect.options.length > 0) {
+                studentSelect.selectedIndex = 0;
+                loadStudentData(studentSelect.value);
+            }
+            alert(`專案「${fullProject.class_name || '未命名'} - ${fullProject.topic || '未命名'}」已成功載入。`);
+
+        } catch (error) {
+            alert(`載入專案時發生錯誤：${error.message}`);
+        }
+    }
+}
+
 
 /**
  * 將本地所有修改同步到雲端
@@ -2123,6 +2172,7 @@ async function syncDataToCloud() {
         const { data: existingProject, error: findError } = await supabaseClient
             .from('student_projects')
             .select('id')
+            .eq('user_id', currentUser.id)
             .eq('class_name', className)
             .eq('topic', topic)
             .maybeSingle();
@@ -2162,12 +2212,14 @@ function updateUIBasedOnAuthState() {
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
     const syncBtn = document.getElementById('sync-btn');
+    const selectProjectBtn = document.getElementById('select-project-btn');
 
     if (currentUser) {
         authStatus.textContent = `已登入: ${currentUser.email}`;
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-flex';
         syncBtn.style.display = 'inline-flex';
+        if (selectProjectBtn) selectProjectBtn.style.display = 'inline-flex';
         
         if (isDataDirty) {
             syncBtn.disabled = false;
@@ -2183,6 +2235,7 @@ function updateUIBasedOnAuthState() {
         loginBtn.style.display = 'inline-flex';
         logoutBtn.style.display = 'none';
         syncBtn.style.display = 'none';
+        if (selectProjectBtn) selectProjectBtn.style.display = 'none';
     }
 }
 
@@ -2461,6 +2514,7 @@ function attachGlobalListeners() {
   document.getElementById('login-btn').addEventListener('click', handleLogin);
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   document.getElementById('sync-btn').addEventListener('click', syncDataToCloud);
+  document.getElementById('select-project-btn').addEventListener('click', promptAndLoadCloudProject);
 
   document.getElementById('student-names').addEventListener('input', () => {
     updateStudentDropdown();
@@ -3318,7 +3372,6 @@ function jumpToStudentFromOverview(originalName) {
 }
 
 /* ---------------- 第四頁：評語分析 ---------------- */
-// **FIXED**: Replaced with the working version from `almost done1.txt`
 function getAnalysisData() {
   const records = allStudentRecords.filter(r => r.data);
   if (!records.length) return null;
@@ -3617,7 +3670,6 @@ function exportStudentDataForAI() {
   XLSX.utils.book_append_sheet(wb, ws, '學生評語資料');
   const filename = `全班評語資料_供AI分析_${getDateTimeString()}.xlsx`;
   XLSX.writeFile(wb, filename);
-  alert(`供 AI 分析的 Excel 檔案已成功導出為 ${filename}！`);
 }
 
 function generateFeedbackPromptV2() {
@@ -4247,681 +4299,6 @@ function exportOverviewToExcel() {
 
     const filename = `學生評語總覽-${className}-${getSanitizedTopicFilename()}.xlsx`;
     XLSX.writeFile(wb, filename);
-    alert(`學生評語總覽已成功導出為 ${filename}！`);
-}
-
-function exportOverviewToWord() {
-  const records = allStudentRecords.filter(r => r.data);
-  if (records.length === 0) {
-    alert('沒有任何已儲存的學生記錄可供匯出。');
-    return;
-  }
-
-  records.sort((a, b) => (a.number || 999) - (b.number || 999));
-
-  const topic = document.getElementById('topic').value.trim() || '未命名文章';
-  const className = records[0].data.class || document.getElementById('student-class').value || '未指定班別';
-
-  let content = `
-  <html xmlns:o="urn:schemas-microsoft-com:office:office"
-        xmlns:w="urn:schemas-microsoft-com:office:word"
-        xmlns="http://www.w3.org/TR/REC-html40">
-  <head>
-    <meta charset="utf-8" />
-    <title>學生評語-${escapeHtmlAttr(topic)}</title>
-    <style>
-      body { font-family: "PMingLiU","新細明體","Microsoft JhengHei",sans-serif; font-size: 11pt; line-height: 1.6; }
-      .meta-line { margin: 4pt 0; }
-      .section-title { font-weight: bold; margin: 10pt 0 4pt 0; }
-      .line { border-top: 1px solid #000; margin: 4pt 0; }
-      table.score { border-collapse: collapse; margin: 4pt 0; width: 100%; font-size: 10.5pt; }
-      table.score th, table.score td { border: 1px solid #000; padding: 3pt 6pt; text-align: center; }
-      .box { border: 1px solid #000; padding: 4pt 6pt; margin: 4pt 0; font-size: 11pt; }
-      .student-page { page-break-after: always; }
-      ul, ol { margin-top: 0; margin-bottom: 0; padding-left: 24pt; }
-      p { margin: 0 0 4pt 0; }
-      b, strong { font-weight: bold; }
-    </style>
-  </head>
-  <body>
-  `;
-
-  records.forEach((record, idx) => {
-    const s = record.data.scores || {};
-    const typos = record.data.typos || [];
-    const typoLines = buildTypoSectionRaw(typos);
-    const pureStudent = record.data.pureStudentComment || '';
-    const num = record.number != null ? String(record.number) : '';
-
-    if (idx > 0) {
-      content += `<br style="page-break-before:always" />`;
-    }
-
-    content += `
-      <div class="student-page">
-        <p class="meta-line">題目：${escapeHtml(topic)}</p>
-        <p class="meta-line">班別：${escapeHtml(record.data.class || className)}　　學號：${escapeHtml(num)}　　姓名：${escapeHtml(record.name)}</p>
-        <p class="section-title">一、分數概覽</p>
-        <div class="line"></div>
-        <table class="score">
-          <tr><th>內容</th><th>表達</th><th>結構</th><th>標點</th><th>錯別字</th><th>總分</th></tr>
-          <tr>
-            <td>${escapeHtmlAttr(s.content || '')}</td>
-            <td>${escapeHtmlAttr(s.expression || '')}</td>
-            <td>${escapeHtmlAttr(s.structure || '')}</td>
-            <td>${escapeHtmlAttr(s.punctuation || '')}</td>
-            <td>${escapeHtmlAttr(s.typos || '')}</td>
-            <td><b>${escapeHtmlAttr(s.total || '')}</b></td>
-          </tr>
-        </table>
-        <div class="line"></div>
-        <p class="section-title">二、錯別字記錄</p>
-        <div class="box">
-    `;
-
-    if (!typoLines.length) {
-      content += escapeHtml("本次沒有記錄錯別字。");
-    } else {
-      content += '<ul>';
-      typoLines.forEach(line => {
-        content += `<li>${escapeHtml(line.replace(/^\d+\.\s/,''))}</li>`;
-      });
-      content += '</ul>';
-    }
-
-    content += `
-        </div>
-        <p class="section-title">三、回饋</p>
-        <div class="box">
-          ${textToWordHtmlWithLists(pureStudent || '—')}
-        </div>
-      </div>
-    `;
-  });
-
-  content += `</body></html>`;
-  
-  const fileName = `學生評語_學生版_${getDateTimeString()}.doc`;
-  downloadFile(fileName, content, 'application/msword;charset=utf-8');
-  alert(`Word 檔已成功匯出：${fileName}`);
-}
-
-function exportAnalysisToExcel() {
-  if (!checkXlsxLibrary()) return;
-  const data = getAnalysisData();
-  if (!data) {
-    alert('目前尚未有已儲存的學生評語，無法匯出分析。');
-    return;
-  }
-  const wb = XLSX.utils.book_new();
-  const scoreRows = data.scoreSummary.map(r=>({
-    指標: r.指標,
-    平均分: r.平均分 == null ? '' : Number(r.平均分.toFixed(2))
-  }));
-  const wsScore = XLSX.utils.json_to_sheet(scoreRows);
-  XLSX.utils.book_append_sheet(wb, wsScore, '分數平均');
-
-  const wsTop = XLSX.utils.json_to_sheet(data.topEntries);
-  XLSX.utils.book_append_sheet(wb, wsTop, '評語TOP10');
-
-  const className = (allStudentRecords.find(r=>r.data)?.data.class) || document.getElementById('student-class').value || '未指定班別';
-  const filename = `評語分析-${className}-${getSanitizedTopicFilename()}.xlsx`;
-  XLSX.writeFile(wb, filename);
-  alert(`評語分析已成功匯出為 ${filename}！`);
-}
-
-function buildTeachingHintFromAnalysis(data) {
-  if (!data) return '目前樣本較少，建議待更多作品批改後再進一步分析。';
-  let lines = [];
-  const avgTotal = data.scoreSummary.find(r=>r.指標==='總分')?.平均分;
-  if (avgTotal != null) {
-    lines.push(`本班已批改作品 ${data.studentCount} 份，平均總分約為 ${avgTotal.toFixed(1)} 分。`);
-  }
-  const lowOnes = data.scoreSummary
-    .filter(r=>r.平均分 != null && r.指標!=='總分')
-    .sort((a,b)=>a.平均分 - b.平均分)
-    .slice(0,2);
-  if (lowOnes.length) {
-    const names = lowOnes.map(r=>r.指標).join('、');
-    lines.push(`在各評分項目中，以「${names}」的平均分數相對較低，可作為下階段補救教學重點。`);
-  }
-  if (data.topEntries.length) {
-    const first = data.topEntries[0];
-    lines.push(`最常被勾選的評語為「${first.評語標題}」（共 ${first.被選次數} 次），反映此為普遍問題或優點，值得課堂上跟進。`);
-  }
-  return lines.join('\n');
-}
-
-function exportAnalysisToWord() {
-  const data = getAnalysisData();
-  if (!data) {
-    alert('目前尚未有已儲存的學生評語，無法匯出分析。');
-    return;
-  }
-  const topic = document.getElementById('topic').value.trim() || '未命名文章';
-  const className = (allStudentRecords.find(r=>r.data)?.data.class) || document.getElementById('student-class').value || '未指定班別';
-  const hint = buildTeachingHintFromAnalysis(data);
-
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}-${today.getDate().toString().padStart(2,'0')}`;
-
-  let content = `
-  <html xmlns:o="urn:schemas-microsoft-com:office:office"
-        xmlns:w="urn:schemas-microsoft-com:office:word"
-        xmlns="http://www.w3.org/TR/REC-html40">
-  <head>
-    <meta charset="utf-8" />
-    <title>評語分析-${escapeHtmlAttr(topic)}</title>
-    <style>
-      body { font-family: "PMingLiU","新細明體","Microsoft JhengHei",sans-serif; font-size: 11pt; line-height: 1.6; }
-      h1 { font-size: 16pt; margin-bottom: 6pt; }
-      h2 { font-size: 14pt; border-bottom: 1px solid #000; padding-bottom: 3pt; margin-top: 15pt;}
-      h3 { font-size: 12pt; margin-top: 12pt; }
-      .meta-line { margin: 2pt 0; }
-      pre { font-family: "PMingLiU","新細明體","Microsoft JhengHei",sans-serif; white-space: pre-wrap; border: 1px solid #ccc; padding: 8pt; background: #f9f9f9; }
-      table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
-      th, td { border: 1px solid #666; padding: 5pt; text-align: left; vertical-align: top; }
-      th { background-color: #f2f2f2; }
-    </style>
-  </head>
-  <body>
-    <h1>評語分析備忘</h1>
-    <div class="meta-line">班別：${escapeHtml(className)}</div>
-    <div class="meta-line">題目：${escapeHtml(topic)}</div>
-    <div class="meta-line">日期：${escapeHtml(dateStr)}</div>
-    <div class="meta-line">已批改作品數：${data.studentCount}</div>
-    ${buildAnalysisWordHtmlSection(data).replace(/<h2>/g, '<h2>').replace(/<h3>/g, '<h3>')}
-    <h2>三、教學提示（草稿）</h2>
-    <pre>${escapeHtml(hint)}</pre>
-  </body>
-  </html>
-  `;
-
-  const filename = `評語分析_${getDateTimeString()}.doc`;
-  downloadFile(filename, content, 'application/msword;charset=utf-8');
-  alert(`評語分析 Word 檔已成功匯出：${filename}`);
-}
-
-function downloadStudentListTemplate() {
-    if (!checkXlsxLibrary()) return;
-    const templateData = [{'學號 (可選)': '1', '姓名': '陳大文'},{'學號 (可選)': '2', '姓名': '張小美'},{'學號 (可選)': '', '姓名': '李偉明'}];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '學生名單範本');
-    XLSX.writeFile(wb, '學生名單範本.xlsx');
-}
-
-function handleStudentListImport(event) {
-    if (!checkXlsxLibrary()) return;
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            
-            if (jsonData.length === 0) {
-                alert('Excel 檔案為空或格式不正確。');
-                return;
-            }
-
-            const studentList = jsonData.map(row => {
-                const numKey = Object.keys(row).find(k => /學號|number|no/i.test(k));
-                const nameKey = Object.keys(row).find(k => /姓名|name/i.test(k));
-                if (!nameKey) return null;
-                const num = numKey ? (row[numKey] || '').toString().trim() : '';
-                const name = (row[nameKey] || '').toString().trim();
-                if (!name) return null;
-                return num ? `${num}-${name}` : name;
-            }).filter(Boolean).join('\n');
-
-            const textarea = document.getElementById('student-names');
-            textarea.value = studentList;
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
-            alert(`成功匯入 ${jsonData.length} 位學生！`);
-        } catch (error) {
-            alert(`匯入學生名單失敗: ${error.message}`);
-        } finally {
-            event.target.value = '';
-        }
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-function downloadCritiqueTemplate() {
-    if (!checkXlsxLibrary()) return;
-    const templateData = [
-        { id: "c1", category: "扣題與立意", type: "excellent", title: "扣題準確，立意明確", strengthSummary: "能緊扣題目要求，立意明確，中心思想清晰。", problemCore: "", suggestion: "", example: "文章題為「一次難忘的經歷」，內文確實圍繞該次經歷的始末與感受描寫，沒有離題。", options: "", optionsLabel: "" },
-        { id: "c2", category: "扣題與立意", type: "problem", title: "立意膚淺", strengthSummary: "", problemCore: "立意不夠深刻，未能從事件中提煉出更深層的意義。", suggestion: "可思考事件背後帶來的反思或啟發，深化主題。", example: "只停留在「記一次愉快的旅行」，未昇華至「旅行的意義」或「個人成長」等層面。", options: "", optionsLabel: "" },
-        { id: "c10", category: "結構與鋪排", type: "problem", title: "篇章轉折略感突兀", strengthSummary: "", problemCore: "文章在由送別現場過渡至「回憶片段」的段落時，情感轉折過快，缺乏鋪墊。", suggestion: "可加上一兩句內心過渡句，讓情感連接更順暢。", example: "寫完道別場面後，可加一句「那天之後，我常想起我們一起放學的午後」，自然引出回憶。", options: "送別現場\n回憶片段", optionsLabel: "轉折部分" }
-    ];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '評語庫範本');
-    XLSX.writeFile(wb, '評語庫-範本.xlsx');
-}
-
-function exportCritiquesToExcel() {
-    if (!checkXlsxLibrary()) return;
-    const dataToExport = collectExportData();
-    if (dataToExport.length === 0) {
-        alert('評語庫目前為空，沒有內容可以導出。');
-        return;
-    }
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '評語庫');
-    const filename = `評語庫-${getSanitizedTopicFilename()}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    alert(`評語庫已成功導出為 ${filename}！`);
-}
-
-function handleCritiqueImportExcel(event) {
-    if (!checkXlsxLibrary()) return;
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            
-            if (jsonData.length > 0) {
-                const required = ['category', 'type', 'title'];
-                if (!required.every(field => field in jsonData[0])) {
-                    alert(`導入失敗！Excel 的標題行必須包含以下欄位：\n${required.join(', ')}`);
-                    return;
-                }
-            }
-            applyImportedData({ items: jsonData });
-            buildOverviewPage();
-            buildChecklist();
-            updateAllOutputs();
-            alert('評語庫已成功從 Excel 檔案導入！');
-        } catch (error) {
-            alert(`導入 Excel 失敗: ${error.message}`);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = '';
-}
-
-function exportCritiquesToJSON() {
-    const dataToExport = collectExportData();
-    if (dataToExport.length === 0) {
-        alert('評語庫目前為空，沒有內容可以導出。');
-        return;
-    }
-    const jsonString = JSON.stringify({ items: dataToExport }, null, 2);
-    downloadFile(`評語庫-${getSanitizedTopicFilename()}.json`, jsonString, 'application/json');
-    alert(`評語庫已成功導出為 JSON 檔案！`);
-}
-
-function handleCritiqueImportJSON(event) {
-    handleFileImport(event.target.files[0], (fileContent) => {
-        try {
-            const data = JSON.parse(fileContent);
-            applyImportedData(data);
-            buildOverviewPage();
-            buildChecklist();
-            updateAllOutputs();
-            alert('評語庫已成功從 JSON 檔案導入！');
-        } catch (error) {
-            alert(`導入 JSON 失敗，請檢查檔案格式是否正確。\n錯誤訊息: ${error.message}`);
-        }
-    });
-    event.target.value = '';
-}
-
-function downloadTypoTemplate() {
-    if (!checkXlsxLibrary()) return;
-    const templateData = [ { id: 'typo_1', wrong: '情況', correct: '情況' }, { id: 'typo_2', wrong: '從使', correct: '從事' }, { id: 'typo_3', wrong: '', correct: '濫竽充數' } ];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '錯別字庫範本');
-    XLSX.writeFile(wb, '常見錯別字庫範本.xlsx');
-}
-
-function exportCommonTyposToExcel() {
-    if (!checkXlsxLibrary()) return;
-    if (commonTypos.length === 0) {
-        alert('常見錯別字庫目前為空，沒有內容可以導出。');
-        return;
-    }
-    const dataToExport = commonTypos.map(t => ({ id: t.id, wrong: t.wrong, correct: t.correct }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '錯別字庫');
-    const filename = `常見錯別字庫-${getSanitizedTopicFilename()}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    alert(`常見錯別字庫已成功導出為 ${filename}！`);
-}
-
-function handleTypoImportExcel(event) {
-    if (!checkXlsxLibrary()) return;
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            
-            if (jsonData.length > 0 && !('correct' in jsonData[0])) {
-                alert('導入失敗！Excel 的標題行必須包含 `correct` 欄位。');
-                return;
-            }
-            commonTypos = jsonData
-                .map((item, index) => ({
-                    id: item.id || `imported_typo_${Date.now()}_${index}`,
-                    wrong: (item.wrong || '').toString().trim(),
-                    correct: (item.correct || '').toString().trim()
-                }))
-                .filter(item => item.correct);
-            isDataDirty = true;
-            updateUIBasedOnAuthState();
-            renderCommonTypoList();
-            alert(`常見錯別字庫已成功導入！共導入 ${commonTypos.length} 條記錄。`);
-        } catch (error) {
-            alert(`導入 Excel 失敗: ${error.message}`);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = '';
-}
-
-function exportCommonTyposToJSON() {
-    if (commonTypos.length === 0) {
-        alert('常見錯別字庫目前為空，沒有內容可以導出。');
-        return;
-    }
-    const jsonString = JSON.stringify(commonTypos, null, 2);
-    downloadFile(`常見錯別字庫-${getSanitizedTopicFilename()}.json`, jsonString, 'application/json');
-    alert(`常見錯別字庫已成功導出為 JSON 檔案！`);
-}
-
-function handleTypoImportJSON(event) {
-    handleFileImport(event.target.files[0], (fileContent) => {
-        try {
-            const data = JSON.parse(fileContent);
-            if (Array.isArray(data)) {
-                commonTypos = data
-                    .map((item, index) => ({
-                        id: item.id || `imported_typo_${Date.now()}_${index}`,
-                        wrong: (item.wrong || '').toString().trim(),
-                        correct: (item.correct || '').toString().trim()
-                    }))
-                    .filter(item => item.correct);
-                isDataDirty = true;
-                updateUIBasedOnAuthState();
-                renderCommonTypoList();
-                alert(`常見錯別字庫已成功導入！共導入 ${commonTypos.length} 條記錄。`);
-            } else {
-                throw new Error("JSON 格式不正確，應為一個陣列。");
-            }
-        } catch (error) {
-            alert(`導入 JSON 失敗: ${error.message}`);
-        }
-    });
-    event.target.value = '';
-}
-
-function exportProgressToExcel() {
-  if (!checkXlsxLibrary()) return;
-
-  if (!allStudentRecords.length) {
-    alert('目前沒有學生名單，無法匯出進度。');
-    return;
-  }
-
-  const rows = allStudentRecords.map(r => {
-    const d = r.data || {};
-    const s = d.scores || {};
-    return {
-      studentNumber: r.number,
-      studentName: r.name,
-      originalName: r.originalName,
-      class: d.class || '',
-      topic: d.topic || '',
-      uniqueComment: d.uniqueComment || '',
-      scoreContent: s.content || '',
-      scoreExpression: s.expression || '',
-      scoreStructure: s.structure || '',
-      scorePunctuation: s.punctuation || '',
-      scoreTypos: s.typos || '',
-      scoreTotal: s.total || '',
-      typosJSON: JSON.stringify(d.typos || []),
-      checkedCritiquesJSON: JSON.stringify(d.checkedCritiques || []),
-      selectedTitles: d.selectedTitles || '',
-      fullComment: d.fullComment || '',
-      studentComment: d.studentComment || '',
-      pureFullComment: d.pureFullComment || '',
-      pureStudentComment: d.pureStudentComment || ''
-    };
-  });
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '評語進度');
-  const filename = `評語進度_${getDateTimeString()}.xlsx`;
-  XLSX.writeFile(wb, filename);
-  alert(`評語進度已匯出為 ${filename}`);
-}
-
-function handleProgressImportExcel(event) {
-  if (!checkXlsxLibrary()) return;
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-      if (!jsonData.length) {
-        alert('匯入進度失敗：工作表為空。');
-        return;
-      }
-
-      allStudentRecords = jsonData.map(row => {
-        const typos = safeParseJSON(row.typosJSON);
-        const checkedCritiques = safeParseJSON(row.checkedCritiquesJSON);
-        const scores = {
-          content: row.scoreContent,
-          expression: row.scoreExpression,
-          structure: row.scoreStructure,
-          punctuation: row.scorePunctuation,
-          typos: row.scoreTypos,
-          total: row.scoreTotal
-        };
-        const dataObj = {
-          class: row.class || '',
-          topic: row.topic || '',
-          uniqueComment: row.uniqueComment || '',
-          scores,
-          typos: Array.isArray(typos) ? typos : [],
-          checkedCritiques: Array.isArray(checkedCritiques) ? checkedCritiques : [],
-          selectedTitles: row.selectedTitles || '',
-          fullComment: row.fullComment || '',
-          studentComment: row.studentComment || '',
-          pureFullComment: row.pureFullComment || '',
-          pureStudentComment: row.pureStudentComment || ''
-        };
-        return {
-          number: row.studentNumber ?? null,
-          name: row.studentName || '',
-          originalName: row.originalName || row.studentName || '',
-          data: dataObj
-        };
-      });
-
-      const firstWithData = allStudentRecords.find(r => r.data && (r.data.class || r.data.topic));
-      if (firstWithData && firstWithData.data) {
-        document.getElementById('student-class').value = firstWithData.data.class || '';
-        document.getElementById('topic').value = firstWithData.data.topic || '';
-      }
-
-      const lines = allStudentRecords.map(r => {
-        return r.number != null && r.number !== '' ? `${r.number}-${r.name}` : r.name;
-      });
-      document.getElementById('student-names').value = lines.join('\n');
-      updateStudentDropdown();
-
-      renderStudentOverviewTable();
-      updateAllOutputs();
-      isDataDirty = true;
-      updateUIBasedOnAuthState();
-      alert('評語進度已成功匯入。');
-
-    } catch (err) {
-      console.error(err);
-      alert('匯入進度失敗：' + err.message);
-    } finally {
-      event.target.value = '';
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function safeParseJSON(str) {
-  if (!str) return [];
-  try {
-    const val = JSON.parse(str);
-    return val;
-  } catch {
-    return [];
-  }
-}
-
-function escapeHtml(text) {
-  if (!text && text !== 0) return "";
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-function escapeHtmlAttr(s) {
-  return (s || '').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-/* ======================================================== */
-/* ====== 導入導出相關功能 (Excel & JSON & Word) ====== */
-/* ======================================================== */
-
-function getSanitizedTopicFilename() {
-    const topic = document.getElementById('topic').value.trim();
-    if (!topic) return '未命名文章';
-    return topic.replace(/[\\/:*?"<>|]/g, '').substring(0, 20);
-}
-
-function getDateTimeString() {
-  const d = new Date();
-  const pad = n => n.toString().padStart(2,'0');
-  return d.getFullYear().toString() +
-         pad(d.getMonth()+1) +
-         pad(d.getDate()) + '_' +
-         pad(d.getHours()) +
-         pad(d.getMinutes()) +
-         pad(d.getSeconds());
-}
-
-function checkXlsxLibrary() {
-    if (typeof XLSX === 'undefined') {
-        alert('處理 Excel 功能初始化失敗。\n\n請檢查您的網絡連線是否正常，然後重新整理頁面。\n此功能需要加載一個外部函式庫(xlsx.js)。');
-        return false;
-    }
-    return true;
-}
-
-function handleFileImport(file, onDataReady) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => onDataReady(e.target.result);
-    reader.onerror = (error) => {
-        console.error('讀取檔案時出錯:', error);
-        alert('讀取檔案失敗！');
-    };
-    reader.readAsText(file, 'UTF-8');
-}
-
-function downloadFile(filename, content, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    if (navigator.msSaveBlob) { // IE 10+
-        navigator.msSaveBlob(blob, filename);
-    } else {
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    }
-}
-
-function exportOverviewToExcel() {
-    if (!checkXlsxLibrary()) return;
-
-    const savedRecords = allStudentRecords.filter(r => r.data);
-    if (savedRecords.length === 0) {
-        alert('沒有任何已儲存的學生記錄可供匯出。');
-        return;
-    }
-    
-    savedRecords.sort((a, b) => (a.number || 999) - (b.number || 999));
-
-    const firstRecord = savedRecords[0];
-    const className = firstRecord.data.class || document.getElementById('student-class').value || '未指定班別';
-
-    const dataToExport = savedRecords.map(record => {
-        const s = record.data.scores;
-        return {
-            '學號': record.number,
-            '姓名': record.name,
-            '內容評分': s.content,
-            '表達評分': s.expression,
-            '結構評分': s.structure,
-            '標點字體評分': s.punctuation,
-            '錯別字加減分': s.typos,
-            '總分': s.total,
-            '已選評語標題': record.data.selectedTitles || '',
-            '完整版評語': record.data.pureFullComment,
-            '學生版評語': record.data.pureStudentComment,
-        };
-    });
-
-    const wsMain = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, wsMain, '學生評語總覽');
-
-    const analysisData = getAnalysisData();
-    if (analysisData) {
-        const { scoreSummary, topEntries } = analysisData;
-        const scoreRows = scoreSummary.map(r => ({
-            指標: r.指標,
-            平均分: r.平均分 == null ? '' : Number(r.平均分.toFixed(2))
-        }));
-        const wsScore = XLSX.utils.json_to_sheet(scoreRows);
-        XLSX.utils.book_append_sheet(wb, wsScore, '分數平均');
-
-        const wsTop = XLSX.utils.json_to_sheet(topEntries);
-        XLSX.utils.book_append_sheet(wb, wsTop, '評語TOP10');
-    }
-
-    const filename = `學生評語總覽-${className}-${getSanitizedTopicFilename()}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    alert(`學生評語總覽已成功導出為 ${filename}！`);
 }
 
 function textToWordHtmlWithLists(text) {
@@ -5060,7 +4437,6 @@ function exportOverviewToWord() {
   
   const fileName = `學生評語_學生版_${getDateTimeString()}.doc`;
   downloadFile(fileName, content, 'application/msword;charset=utf-8');
-  alert(`Word 檔已成功匯出：${fileName}`);
 }
 
 function exportAnalysisToExcel() {
@@ -5084,7 +4460,6 @@ function exportAnalysisToExcel() {
   const className = (allStudentRecords.find(r=>r.data)?.data.class) || document.getElementById('student-class').value || '未指定班別';
   const filename = `評語分析-${className}-${getSanitizedTopicFilename()}.xlsx`;
   XLSX.writeFile(wb, filename);
-  alert(`評語分析已成功匯出為 ${filename}！`);
 }
 
 function buildTeachingHintFromAnalysis(data) {
@@ -5173,7 +4548,6 @@ function exportAnalysisToWord() {
 
   const filename = `評語分析_${getDateTimeString()}.doc`;
   downloadFile(filename, content, 'application/msword;charset=utf-8');
-  alert(`評語分析 Word 檔已成功匯出：${filename}`);
 }
 
 function downloadStudentListTemplate() {
@@ -5250,7 +4624,6 @@ function exportCritiquesToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, '評語庫');
     const filename = `評語庫-${getDateTimeString()}.xlsx`;
     XLSX.writeFile(wb, filename);
-    alert(`評語庫已成功導出為 ${filename}！`);
 }
 
 function handleCritiqueImportExcel(event) {
@@ -5292,7 +4665,6 @@ function exportCritiquesToJSON() {
     }
     const jsonString = JSON.stringify({ items: dataToExport }, null, 2);
     downloadFile(`評語庫-${getDateTimeString()}.json`, jsonString, 'application/json');
-    alert(`評語庫已成功導出為 JSON 檔案！`);
 }
 
 function handleCritiqueImportJSON(event) {
@@ -5332,7 +4704,6 @@ function exportCommonTyposToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, '錯別字庫');
     const filename = `常見錯別字庫-${getDateTimeString()}.xlsx`;
     XLSX.writeFile(wb, filename);
-    alert(`常見錯別字庫已成功導出為 ${filename}！`);
 }
 
 function handleTypoImportExcel(event) {
@@ -5376,7 +4747,6 @@ function exportCommonTyposToJSON() {
     }
     const jsonString = JSON.stringify(commonTypos, null, 2);
     downloadFile(`常見錯別字庫-${getDateTimeString()}.json`, jsonString, 'application/json');
-    alert(`常見錯別字庫已成功導出為 JSON 檔案！`);
 }
 
 function handleTypoImportJSON(event) {
@@ -5444,7 +4814,6 @@ function exportProgressToExcel() {
   XLSX.utils.book_append_sheet(wb, ws, '評語進度');
   const filename = `評語進度_${getDateTimeString()}.xlsx`;
   XLSX.writeFile(wb, filename);
-  alert(`評語進度已匯出為 ${filename}`);
 }
 
 function handleProgressImportExcel(event) {
@@ -5689,7 +5058,6 @@ function generateTeacherWord() {
     const content = _buildAiFeedbackWordHtml(aiData, 'teacher');
     const filename = `AI回饋_${getSanitizedTopicFilename()}_老師版.doc`;
     downloadFile(filename, content, 'application/msword;charset=utf-8');
-    alert(`老師版 Word 文件已成功匯出！`);
 }
 
 function generateStudentWord() {
@@ -5698,7 +5066,6 @@ function generateStudentWord() {
     const content = _buildAiFeedbackWordHtml(aiData, 'student');
     const filename = `AI回饋_${getSanitizedTopicFilename()}_學生版.doc`;
     downloadFile(filename, content, 'application/msword;charset=utf-8');
-    alert(`學生版 Word 文件已成功匯出！`);
 }
 </script>
 
