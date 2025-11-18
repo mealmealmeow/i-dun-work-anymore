@@ -2268,8 +2268,8 @@ function updateAllOutputs() {
 
 function generatePureFullVersion(excellents, problems) {
   let parts = [];
-  if (excellents.length > 0) { parts.push('【優點】'); excellents.forEach((c, i) => { const id = c.id; const title = getCritiqueData(id, 'title'); const concise = getConciseData(id); if (!concise) return; const v = getInteractiveValue(id, false); const examples = concretizeExample(id, concise.example); const seg = []; seg.push(`（${i+1}）${title}`); let strengthSummary = concise.strengthSummary || ''; if (v) strengthSummary = strengthSummary.replace(/\[選項\]/g, `「${v}」`); if (strengthSummary) seg.push(`${strengthSummary}`); if (examples.length) seg.push(`例如：${examples.join(' ')}`); parts.push(seg.join('\n')); }); }
-  if (problems.length > 0) { parts.push('', '【待改進】'); problems.forEach((c, i) => { const id = c.id; const concise = getConciseData(id); if (!concise) return; const v = getInteractiveValue(id, false); const examples = concretizeExample(id, concise.example); const seg = []; seg.push(`（${i+1}）`); let problemText = concise.problemCore || ''; if (v) problemText = problemText.replace(/\[選項\]/g, `「${v}」`); if (problemText) seg.push(`問題：${problemText}`); let suggestion = concise.suggestion || ''; if (v) suggestion = suggestion.replace(/\[選項\]/g, `「${v}」`); if (suggestion) seg.push(`宜：${suggestion}`); if (examples.length) seg.push(`例如，${examples.join(' ')}`); parts.push(seg.join(' ')); }); }
+  if (excellents.length > 0) { parts.push('【優點】'); excellents.forEach((c, i) => { const id = c.id; const title = getCritiqueData(id, 'title'); const concise = getConciseData(id); if (!concise) return; const v = getInteractiveValue(id, false); const examples = concretizeExample(id, concise.example); const seg = []; seg.push(`（${i+1}）${title}`); let strengthSummary = concise.strengthSummary || ''; if (v) strengthSummary = strengthSummary.replace(/[選項]/g, `「${v}」`); if (strengthSummary) seg.push(`${strengthSummary}`); if (examples.length) seg.push(`例如：${examples.join(' ')}`); parts.push(seg.join('\n')); }); }
+  if (problems.length > 0) { parts.push('', '【待改進】'); problems.forEach((c, i) => { const id = c.id; const concise = getConciseData(id); if (!concise) return; const v = getInteractiveValue(id, false); const examples = concretizeExample(id, concise.example); const seg = []; seg.push(`（${i+1}）`); let problemText = concise.problemCore || ''; if (v) problemText = problemText.replace(/[選項]/g, `「${v}」`); if (problemText) seg.push(`問題：${problemText}`); let suggestion = concise.suggestion || ''; if (v) suggestion = suggestion.replace(/[選項]/g, `「${v}」`); if (suggestion) seg.push(`宜：${suggestion}`); if (examples.length) seg.push(`例如，${examples.join(' ')}`); parts.push(seg.join(' ')); }); }
   return toFullWidthPunctuation(normalizeSpacing(parts.join('\n')));
 }
 
@@ -2303,8 +2303,8 @@ function composeStudentFromConcise(id) {
   const isExcellent = c.type === 'excellent';
   const v = getInteractiveValue(id, false); const exampleLines = concretizeExample(id, c.example); const parts = [];
   const title = getCritiqueData(id, 'title'); parts.push(`${title}`);
-  if (isExcellent) { let strengthSummary = c.strengthSummary || ''; if (v) strengthSummary = strengthSummary.replace(/\[選項\]/g, `「${v}」`); if (strengthSummary) parts.push(`- 優點：${strengthSummary}`); if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- ${line}`)); }
-  else { let problemText = c.problemCore || ''; if (v) problemText = problemText.replace(/\[選項\]/g, `「${v}」`); if (problemText) parts.push(`- 問題：${problemText}`); let suggestion = c.suggestion || ''; if (v) suggestion = suggestion.replace(/\[選項\]/g, `「${v}」`); if (suggestion) parts.push(`- 宜：${suggestion}`); if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- 例：${line}`)); }
+  if (isExcellent) { let strengthSummary = c.strengthSummary || ''; if (v) strengthSummary = strengthSummary.replace(/[選項]/g, `「${v}」`); if (strengthSummary) parts.push(`- 優點：${strengthSummary}`); if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- ${line}`)); }
+  else { let problemText = c.problemCore || ''; if (v) problemText = problemText.replace(/[選項]/g, `「${v}」`); if (problemText) parts.push(`- 問題：${problemText}`); let suggestion = c.suggestion || ''; if (v) suggestion = suggestion.replace(/[選項]/g, `「${v}」`); if (suggestion) parts.push(`- 宜：${suggestion}`); if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- 例：${line}`)); }
   return parts.join('\n');
 }
 
@@ -2521,6 +2521,7 @@ function handleManualEdit(which) { const ta = which === 'full' ? document.getEle
 function clearAllCore(doUpdate = true) { document.getElementById('unique-comment').value = ''; ['score-content','score-expression','score-structure','score-punctuation','score-typos','score-total'].forEach(id=>{ const el = document.getElementById(id); if (el) el.value='';}); currentTypos = []; renderTypoList(); document.querySelectorAll('#checklist-container input[type="checkbox"]').forEach(cb => { cb.checked = false; handleCheckboxChange(cb, false); }); document.querySelectorAll('.editable-comment textarea').forEach(t => t.value = ''); document.querySelectorAll('#typo-saved-list input[type="checkbox"]').forEach(cb => cb.checked = false); if (doUpdate) { renderCommonTyposCheckedState(); updateAllOutputs(); } }
 
 // --- 導入導出 (Excel & JSON & Word) ---
+// [新增] 以下是所有新增的匯出/匯入功能程式碼
 function getSanitizedTopicFilename() { const topic = document.getElementById('topic').value.trim(); if (!topic) return '未命名文章'; return topic.replace(/[\\/:*?"<>|]/g, '').substring(0, 20); }
 function getDateTimeString() { const d = new Date(); const pad = n => n.toString().padStart(2,'0'); return d.getFullYear().toString() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); }
 function checkXlsxLibrary() { if (typeof window.XLSX === 'undefined') { alert('Excel 處理函式庫尚未載入完成，請稍後再試或檢查您的網路連線。'); return false; } return true; }
@@ -2537,19 +2538,18 @@ function handleFileImport(file, onDataReady, readAsArrayBuffer = false) {
 
 function downloadFile(filename, content, mimeType) {
     const blob = new Blob([content], { type: mimeType });
-    if (navigator.msSaveBlob) {
-        navigator.msSaveBlob(blob, filename);
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     } else {
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        alert("你的瀏覽器不支援自動下載功能，請手動儲存。");
     }
 }
 
@@ -2580,9 +2580,13 @@ function convertTextToDocxParagraphs(text) {
 
     lines.forEach(line => {
         const trimmedLine = line.trim();
+        if (trimmedLine === '') {
+            paragraphs.push(new Paragraph(""));
+            return;
+        }
 
         const children = [];
-        const parts = trimmedLine.split(/(\*\*.*?\*\*)/g).filter(Boolean); // Split by **bold** text
+        const parts = trimmedLine.split(/(\*\*.*?\*\*)/g).filter(Boolean); // 按 **粗體** 分割
         parts.forEach(part => {
             if (part.startsWith('**') && part.endsWith('**')) {
                 children.push(new TextRun({ text: part.slice(2, -2), bold: true }));
@@ -2592,16 +2596,8 @@ function convertTextToDocxParagraphs(text) {
         });
 
         let paragraphOptions = { children };
-        if (/^[-*•]\s/.test(trimmedLine)) {
+        if (/^[-*•]\s/.test(trimmedLine) || /^\(.\)\s/.test(trimmedLine) || /^\d\.\s/.test(trimmedLine)) {
             paragraphOptions.bullet = { level: 0 };
-            if (children.length > 0 && children[0].text) {
-                children[0].text = children[0].text.replace(/^[-*•]\s*/, '');
-            }
-        } else if (/^\d+\.\s/.test(trimmedLine)) {
-            paragraphOptions.numbering = { reference: "default-numbering", level: 0 };
-            if (children.length > 0 && children[0].text) {
-                children[0].text = children[0].text.replace(/^\d+\.\s*/, '');
-            }
         }
         
         paragraphs.push(new Paragraph(paragraphOptions));
@@ -2649,8 +2645,8 @@ function exportOverviewToWord() {
         docChildren.push(new Paragraph({ text: "一、分數概覽", style: "Heading2" }));
         docChildren.push(new Table({
             rows: [
-                new TableRow({ children: ['內容', '表達', '結構', '標點', '錯別字', '總分'].map(text => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, bold: true })] })] })) }),
-                new TableRow({ children: [s.content, s.expression, s.structure, s.punctuation, s.typos, s.total].map(text => new TableCell({ children: [new Paragraph(String(text || ''))] })) })
+                new TableRow({ children: ['內容', '表達', '結構', '標點', '錯別字', '總分'].map(text => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, bold: true })], alignment: 'center' })] })) }),
+                new TableRow({ children: [s.content, s.expression, s.structure, s.punctuation, s.typos, s.total].map(text => new TableCell({ children: [new Paragraph({ text: String(text || ''), alignment: 'center' })] })) })
             ],
             width: { size: 100, type: WidthType.PERCENT }
         }));
@@ -2658,7 +2654,7 @@ function exportOverviewToWord() {
         if (!typoLines.length) {
             docChildren.push(new Paragraph("本次沒有記錄錯別字。"));
         } else {
-            typoLines.forEach(line => docChildren.push(new Paragraph({ text: line.replace(/^\d+\.\s/, ''), bullet: { level: 0 } })));
+            typoLines.forEach(line => docChildren.push(new Paragraph({ text: line, bullet: { level: 0 } })));
         }
         docChildren.push(new Paragraph({ text: "三、回饋", style: "Heading2" }));
         docChildren.push(...convertTextToDocxParagraphs(pureStudent));
@@ -2667,7 +2663,6 @@ function exportOverviewToWord() {
     const doc = new Document({
         creator: "我不想努力了生成器",
         styles: { default: { document: { run: { font: "LXGW WenKai TC" } } }, paragraphStyles: [ { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true, run: { size: 28, bold: true } } ] },
-        numbering: { config: [{ reference: "default-numbering", levels: [{ level: 0, format: "decimal", text: "%1." }] }] },
         sections: [{ children: docChildren }]
     });
     downloadDocx(doc, `學生評語_學生版_${getDateTimeString()}.docx`);
@@ -2697,7 +2692,7 @@ function buildTeachingHintFromAnalysis(data) {
 
 function exportAnalysisToWord() {
   if (!checkDocxLibrary()) return;
-  const { Document, Paragraph, HeadingLevel, Table, TableCell, TableRow } = window.docx;
+  const { Document, Paragraph, HeadingLevel, Table, TableCell, TableRow, WidthType } = window.docx;
   const data = getAnalysisData(); if (!data) { alert('目前尚未有已儲存的學生評語，無法匯出分析。'); return; }
   
   const topic = document.getElementById('topic').value.trim() || '未命名文章';
@@ -2713,11 +2708,11 @@ function exportAnalysisToWord() {
       new Paragraph({ text: "分數概覽（平均值）", heading: HeadingLevel.HEADING_2 }),
   ];
   const scoreRows = data.scoreSummary.map(row => new TableRow({ children: [ new TableCell({ children: [new Paragraph(row.指標)] }), new TableCell({ children: [new Paragraph(row.平均分 != null ? row.平均分.toFixed(2) : '-')] }) ] }));
-  docChildren.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ text: "指標", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "平均分", bold: true })] })] }), ...scoreRows] }));
+  docChildren.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ text: "指標", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "平均分", bold: true })] })] }), ...scoreRows], width: { size: 100, type: WidthType.PERCENT } }));
   docChildren.push(new Paragraph({ text: "最常見評語項目 TOP 10", heading: HeadingLevel.HEADING_2 }));
   if (data.topEntries.length > 0) {
       const topCritiqueRows = data.topEntries.map(row => new TableRow({ children: [ new TableCell({ children: [new Paragraph(String(row.排名))] }), new TableCell({ children: [new Paragraph(row.評語標題)] }), new TableCell({ children: [new Paragraph(String(row.被選次數))] }) ] }));
-      docChildren.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ text: "排名", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "評語標題", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "被選次數", bold: true })] })] }), ...topCritiqueRows] }));
+      docChildren.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ text: "排名", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "評語標題", bold: true })] }), new TableCell({ children: [new Paragraph({ text: "被選次數", bold: true })] })] }), ...topCritiqueRows], width: { size: 100, type: WidthType.PERCENT } }));
   } else {
       docChildren.push(new Paragraph("（暫無數據）"));
   }
