@@ -1862,8 +1862,9 @@
 // **請將此處的 URL 和 KEY 換成你自己的！** (在您的 Supabase 專案設定 > API 頁面找到)
 const SUPABASE_URL = 'https://wtcegbkfuklnkurrouka.supabase.co'; 
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0Y2VnYmtmdWtsbmt1cnJvdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MTU5MjgsImV4cCI6MjA3ODk5MTkyOH0.mQT2TXLR6m41D1WzmqH35mKdoGDGqHaHhZm-sTpPmpQ';
-const { createClient } = supabase; // 從全域的 supabase 物件中，先把 createClient 函式拿出來
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); // 使用拿出來的函式建立新的 supabase 客戶端實例
+// 【修正】將原本錯誤的一行，換成這兩行，以避免變數命名衝突
+const { createClient } = supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 全域變數
 let currentUser = null;
@@ -2730,7 +2731,7 @@ function generatePureFullVersion(excellents, problems) {
       const seg = [];
       seg.push(`（${i+1}）${title}`);
       let strengthSummary = concise.strengthSummary || '';
-      if (v) strengthSummary = strengthSummary.replace(/\[選項\]/g, `「${v}」`);
+      if (v) strengthSummary = strengthSummary.replace(/[選項]/g, `「${v}」`);
       if (strengthSummary) seg.push(`${strengthSummary}`);
       if (examples.length) seg.push(`例如：${examples.join(' ')}`);
       parts.push(seg.join('\n'));
@@ -2748,10 +2749,10 @@ function generatePureFullVersion(excellents, problems) {
       const seg = [];
       seg.push(`（${i+1}）`);
       let problemText = concise.problemCore || '';
-      if (v) problemText = problemText.replace(/\[選項\]/g, `「${v}」`);
+      if (v) problemText = problemText.replace(/[選項]/g, `「${v}」`);
       if (problemText) seg.push(`問題：${problemText}`);
       let suggestion = concise.suggestion || '';
-      if (v) suggestion = suggestion.replace(/\[選項\]/g, `「${v}」`);
+      if (v) suggestion = suggestion.replace(/[選項]/g, `「${v}」`);
       if (suggestion) seg.push(`宜：${suggestion}`);
       if (examples.length) seg.push(`例如，${examples.join(' ')}`);
       parts.push(seg.join(' '));
@@ -2834,16 +2835,16 @@ function composeStudentFromConcise(id) {
 
   if (isExcellent) {
     let strengthSummary = c.strengthSummary || '';
-    if (v) strengthSummary = strengthSummary.replace(/\[選項\]/g, `「${v}」`);
+    if (v) strengthSummary = strengthSummary.replace(/[選項]/g, `「${v}」`);
     if (strengthSummary) parts.push(`- 優點：${strengthSummary}`);
     if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- ${line}`));
   } else {
     let problemText = c.problemCore || '';
-    if (v) problemText = problemText.replace(/\[選項\]/g, `「${v}」`);
+    if (v) problemText = problemText.replace(/[選項]/g, `「${v}」`);
     if (problemText) parts.push(`- 問題：${problemText}`);
 
     let suggestion = c.suggestion || '';
-    if (v) suggestion = suggestion.replace(/\[選項\]/g, `「${v}」`);
+    if (v) suggestion = suggestion.replace(/[選項]/g, `「${v}」`);
     if (suggestion) parts.push(`- 宜：${suggestion}`);
     
     if (exampleLines.length > 0) exampleLines.forEach(line => parts.push(`- 例：${line}`));
