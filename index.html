@@ -276,9 +276,8 @@
     opacity: 1;
   }
   
-  /* --- 新增: 批改頁專屬快捷導航 --- */
   #grading-sub-nav {
-    display: none; /* 預設隱藏 */
+    display: none; 
     background-color: #f8f6f2;
     padding: 0.5rem 1rem;
     border-bottom: 1px solid var(--border-color);
@@ -1390,7 +1389,6 @@
         <button id="nav-page7" class="nav-btn" onclick="showPage('page7')">AI 生成回饋</button>
       </nav>
 
-      <!-- 新增：批改頁專屬快捷導航 -->
       <div id="grading-sub-nav">
         <a href="#grading-section-student" class="sub-nav-link" onclick="scrollToSection(event, 'grading-section-student')">學生</a>
         <a href="#grading-section-checklist" class="sub-nav-link" onclick="scrollToSection(event, 'grading-section-checklist')">評語項目</a>
@@ -1454,7 +1452,6 @@
       <div id="page2" class="page-content">
         <div class="grading-page-grid">
             
-            <!-- 新增：為 section-box 添加 ID -->
             <div id="grading-section-student" class="section-box">
                 <h2>一、選擇學生</h2>
                 <div class="input-group">
@@ -2217,7 +2214,6 @@ function loadFontSize() { try { const savedScale = localStorage.getItem(FONT_SCA
 
 /* ---------------- 頁面切換與通用功能 ---------------- */
 
-// 新增：快捷導航捲動功能
 function scrollToSection(event, targetId) {
   event.preventDefault();
   const targetElement = document.getElementById(targetId);
@@ -2227,7 +2223,7 @@ function scrollToSection(event, targetId) {
   const stickyBarHeight = stickyBar ? stickyBar.offsetHeight : 0;
   
   const elementPosition = targetElement.getBoundingClientRect().top;
-  const offsetPosition = elementPosition + window.pageYOffset - stickyBarHeight - 15; // 15px 的額外間距
+  const offsetPosition = elementPosition + window.pageYOffset - stickyBarHeight - 15; 
 
   window.scrollTo({
       top: offsetPosition,
@@ -2244,7 +2240,6 @@ function showPage(pageId, focusElementId = null) {
   const nav = document.getElementById('nav-' + pageId);
   if(nav) nav.classList.add('active');
   
-  // 新增：控制快捷導航的顯示/隱藏
   const gradingSubNav = document.getElementById('grading-sub-nav');
   if (gradingSubNav) {
       gradingSubNav.style.display = (pageId === 'page2') ? 'flex' : 'none';
@@ -2267,7 +2262,7 @@ function showPage(pageId, focusElementId = null) {
     setTimeout(() => {
       const targetElement = document.getElementById(focusElementId);
       if (targetElement) {
-          scrollToSection(new Event('dummy'), focusElementId); // 使用新函數來捲動
+          scrollToSection(new Event('dummy'), focusElementId); 
           if(document.activeElement !== targetElement) {
               targetElement.focus({ preventScroll: true });
           }
