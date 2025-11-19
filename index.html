@@ -3327,8 +3327,8 @@ function saveCurrentStudentData() {
     selectedTitles: checkedCritiques.map(c => getCritiqueData(c.id, 'title')).filter(Boolean).join('；'),
     fullComment: document.getElementById('full-output').value,
     studentComment: document.getElementById('student-report-output').value,
-    pureFullComment: `${uniqueCommentBlock}${generatePureFullVersion(excellentCritiques, problems)}`.trim(),
-    pureStudentComment: `${uniqueCommentBlock}${generatePureStudentReport(excellentCritiques, problems)}`.trim(),
+    pureFullComment: `${uniqueCommentBlock}${generatePureFullVersion(excellentCritiques, problemCritiques)}`.trim(),
+    pureStudentComment: `${uniqueCommentBlock}${generatePureStudentReport(excellentCritiques, problemCritiques)}`.trim(),
   };
 
   renderStudentOverviewTable();
@@ -4051,6 +4051,7 @@ function exportOverviewToExcel() {
         };
     });
     
+    // ** 修正部分 **
     const wb = XLSX.utils.book_new();
     const wsMain = XLSX.utils.json_to_sheet(dataToExport);
     XLSX.utils.book_append_sheet(wb, wsMain, '學生評語總覽');
@@ -4174,24 +4175,11 @@ function downloadCritiqueTemplate() {
         { id: "c1", category: "扣題與立意", type: "excellent", title: "扣題準確", strengthSummary: "能緊扣題目要求...", problemCore: "", suggestion: "", example: "文章題為...", options: "", optionsLabel: "" },
         { id: "c2", category: "扣題與立意", type: "problem", title: "立意膚淺", strengthSummary: "", problemCore: "立意不夠深刻...", suggestion: "可思考事件背後...", example: "只停留在...", options: "", optionsLabel: "" }
     ];
+    // ** 修正部分 **
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '評語庫範本');
     XLSX.writeFile(wb, '評語庫-範本.xlsx');
-}
-
-// *** 新增的函數 ***
-function downloadStudentListTemplate() {
-    if (!checkXlsxLibrary()) return;
-    const templateData = [
-        { "學號": "1", "姓名": "陳大文" },
-        { "學號": "2", "姓名": "張小美" },
-        { "學號": "", "姓名": "李偉明 (可不填學號)" }
-    ];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '學生名單範本');
-    XLSX.writeFile(wb, '學生名單-範本.xlsx');
 }
 
 function handleStudentListImport(event) {
@@ -4231,6 +4219,7 @@ function exportCritiquesToExcel() {
     const dataToExport = collectExportData();
     if (dataToExport.length === 0) { alert('評語庫目前為空，沒有內容可以導出。'); return; }
     
+    // ** 修正部分 **
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     XLSX.utils.book_append_sheet(wb, ws, '評語庫');
@@ -4297,6 +4286,7 @@ function exportProgressToExcel() {
     };
   });
   
+  // ** 修正部分 **
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, '評語進度');
@@ -4364,7 +4354,7 @@ function _buildAiFeedbackWordHtml(aiData, mode) {
     const className = (allStudentRecords.find(r => r.data)?.data.class) || '未指定班別';
     const dateStr = new Date().toLocaleDateString('zh-Hant');
     const mdToHtml = (text) => text ? text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') : '';
-    let html = `<h1>${escapeHtml(topic)} - 寫作回饋 (${mode === 'teacher' ? '老師版' : '學生版'})</h1><p><b>班別：</b>${escapeHtml(className)}</p><p><b>日期：</b>${escapeHtml(dateStr)}</p>`;
+    let html = `<h1>${escapeHtml(topic)} - 寫作回饋 (${mode === 'teacher' ? '老師版' : '學生版'})</h1><p><b>班別：</b>${escapeHtml(className)}</p><p><b>日期：</b>${dateStr}</p>`;
     if (aiData.classOverview) {
         const summary = mode === 'teacher' ? aiData.classOverview.teacherSummary : aiData.classOverview.studentSummary;
         if (summary) html += `<h2>一、整體表現概覽</h2><div class="box">${mdToHtml(textToWordHtmlWithLists(summary))}</div>`;
