@@ -4081,7 +4081,7 @@ function exportOverviewToWord() {
         <p class="meta-line">班別：${escapeHtml(record.data.class || className)}　　學號：${escapeHtml(record.number != null ? String(record.number) : '')}　　姓名：${escapeHtml(record.name)}</p>
         <p class="section-title">一、分數概覽</p><div class="line"></div>
         <table class="score"><tr><th>內容</th><th>表達</th><th>結構</th><th>標點</th><th>錯別字</th><th>總分</th></tr><tr><td>${escapeHtmlAttr(s.content||'')}</td><td>${escapeHtmlAttr(s.expression||'')}</td><td>${escapeHtmlAttr(s.structure||'')}</td><td>${escapeHtmlAttr(s.punctuation||'')}</td><td>${escapeHtmlAttr(s.typos||'')}</td><td><b>${escapeHtmlAttr(s.total||'')}</b></td></tr></table>
-        <div class="line"></div><p class="section-title">二、錯別字記錄</p><div class="box">${!typoLines.length ? "本次沒有記錄錯別字。" : `<ul>${typoLines.map(line => `<li>${escapeHtml(line.replace(/^\d+\.\s/,''))}</li>`).join('')}</ul>`}</div>
+        <div class="line"></div><p class="section-title">二、錯別字記錄</p><div class="box">${!typoLines.length ? "本次沒有記錄錯別字。" : `<ul>${typoLines.map(line => `<ul>${escapeHtml(line.replace(/^\d+\.\s/,''))}</ul>`).join('')}</ul>`}</div>
         <p class="section-title">三、回饋</p><div class="box">${textToWordHtmlWithLists(record.data.pureStudentComment || '—')}</div>
       </div>`;
   });
