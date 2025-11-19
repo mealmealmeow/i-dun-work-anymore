@@ -81,6 +81,15 @@
     backdrop-filter: blur(10px);
   }
 
+  /* --- 修改 4: 新增置頂容器 --- */
+  .sticky-top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--secondary-bg); /* 背景色確保內容不穿透 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
   header { 
     padding: 1.6rem 2rem 1.4rem; 
     background: var(--header-bg); 
@@ -220,10 +229,8 @@
     background-color: var(--nav-bg); 
     border-bottom: 1px solid var(--border-color); 
     flex-wrap:wrap; 
-    position: sticky;
-    top: 0;
-    z-index: 5;
     overflow-x: auto;
+    /* --- 修改 4: 移除 sticky 屬性，交由父容器處理 --- */
   }
 
   .nav-btn { 
@@ -1329,35 +1336,38 @@
 <body>
 
   <div class="main-container">
-    <header>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <h1>我不想努力了</h1>
-        <!-- 用戶認證區塊 -->
-        <div class="auth-container">
-          <span id="auth-status">未連接</span>
-          <div id="auth-buttons">
-            <button id="login-btn" class="btn light-btn">登入/註冊</button>
-            <button id="logout-btn" class="btn danger-btn" style="display: none;">登出</button>
-            <button id="sync-btn" class="btn action-btn" style="display: none;" disabled>同步至雲端</button>
+    <!-- 修改 4: 將 header 和 nav 包在一個置頂容器中 -->
+    <div class="sticky-top-bar">
+      <header>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <h1>我不想努力了</h1>
+          <!-- 用戶認證區塊 -->
+          <div class="auth-container">
+            <span id="auth-status">未連接</span>
+            <div id="auth-buttons">
+              <button id="login-btn" class="btn light-btn">登入/註冊</button>
+              <button id="logout-btn" class="btn danger-btn" style="display: none;">登出</button>
+              <button id="sync-btn" class="btn action-btn" style="display: none;" disabled>同步至雲端</button>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="font-controls">
-        <button class="font-control-btn" onclick="adjustFontSize('decrease')" title="縮小字體">A-</button>
-        <button class="font-control-btn" onclick="adjustFontSize('reset')" title="重設字體大小">重設</button>
-        <button class="font-control-btn" onclick="adjustFontSize('increase')" title="放大字體">A+</button>
-      </div>
-    </header>
-    
-    <nav class="page-nav">
-      <button id="nav-page1" class="nav-btn active" onclick="showPage('page1')">基本設定</button>
-      <button id="nav-page2" class="nav-btn" onclick="showPage('page2')">批改頁</button>
-      <button id="nav-page3" class="nav-btn" onclick="showPage('page3')">評語總覽與修訂</button>
-      <button id="nav-page4" class="nav-btn" onclick="showPage('page4')">學生總覽</button>
-      <button id="nav-page5" class="nav-btn" onclick="showPage('page5')">評語分析</button>
-      <button id="nav-page6" class="nav-btn" onclick="showPage('page6')">AI 評語庫生成</button>
-      <button id="nav-page7" class="nav-btn" onclick="showPage('page7')">AI 生成回饋</button>
-    </nav>
+        <div class="font-controls">
+          <button class="font-control-btn" onclick="adjustFontSize('decrease')" title="縮小字體">A-</button>
+          <button class="font-control-btn" onclick="adjustFontSize('reset')" title="重設字體大小">重設</button>
+          <button class="font-control-btn" onclick="adjustFontSize('increase')" title="放大字體">A+</button>
+        </div>
+      </header>
+      
+      <nav class="page-nav">
+        <button id="nav-page1" class="nav-btn active" onclick="showPage('page1')">基本設定</button>
+        <button id="nav-page2" class="nav-btn" onclick="showPage('page2')">批改頁</button>
+        <button id="nav-page3" class="nav-btn" onclick="showPage('page3')">評語總覽與修訂</button>
+        <button id="nav-page4" class="nav-btn" onclick="showPage('page4')">學生總覽</button>
+        <button id="nav-page5" class="nav-btn" onclick="showPage('page5')">評語分析</button>
+        <button id="nav-page6" class="nav-btn" onclick="showPage('page6')">AI 評語庫生成</button>
+        <button id="nav-page7" class="nav-btn" onclick="showPage('page7')">AI 生成回饋</button>
+      </nav>
+    </div>
 
     <main>
       <!-- ==================== 第一頁：基本設定 (新) ==================== -->
@@ -1390,7 +1400,8 @@
                         <label><input type="checkbox" name="genre" value="argumentative"> 議論</label>
                     </div>
                     <div class="btn-group" style="margin-top: 1rem;">
-                        <button class="action-btn" onclick="loadCannedCritiques()">確定並載入預設評語</button>
+                        <!-- 修改 1: 調整 onclick 事件 -->
+                        <button class="action-btn" onclick="loadCannedCritiquesAndFocus()">確定並載入預設評語</button>
                     </div>
                 </div>
             </details>
@@ -1401,8 +1412,10 @@
                     <p>您可以從雲端讀取之前儲存的整個專案（包含學生名單及進度），或跳至其他頁面手動建立/導入評語庫。</p>
                     <div class="btn-group">
                         <button id="select-project-btn" class="secondary-btn" style="display: none;">從雲端選取專案</button>
-                        <button class="light-btn brown" onclick="showPage('page6')">前往 AI 評語庫生成</button>
-                        <button class="light-btn" onclick="showPage('page3')">前往手動修訂評語庫</button>
+                        <!-- 修改 2: 調整 onclick 事件 -->
+                        <button class="light-btn brown" onclick="showPage('page6', 'ai-student-level')">前往 AI 評語庫生成</button>
+                        <!-- 修改 3: 調整 onclick 事件 -->
+                        <button class="light-btn" onclick="showPage('page3', 'overview-controls')">前往手動修訂評語庫</button>
                     </div>
                 </div>
             </details>
@@ -1610,7 +1623,8 @@
             </div>
           </details>
 
-          <div class="btn-group" style="margin-top: 1.5rem; margin-bottom: 1rem;">
+          <!-- 修改 3: 為按鈕組添加 ID -->
+          <div id="overview-controls" class="btn-group" style="margin-top: 1.5rem; margin-bottom: 1rem;">
             <button class="light-btn" onclick="toggleAllDetails('overview-list', true)">全部展開</button>
             <button class="light-btn brown" onclick="toggleAllDetails('overview-list', false)">全部收合</button>
           </div>
@@ -2174,7 +2188,8 @@ function saveFontSize(scale) { try { localStorage.setItem(FONT_SCALE_KEY, scale)
 function loadFontSize() { try { const savedScale = localStorage.getItem(FONT_SCALE_KEY); const scale = parseFloat(savedScale) || DEFAULT_FONT_SCALE; const root = document.documentElement; root.style.setProperty('--font-scale', scale); root.style.fontSize = `calc(16px * ${scale})`; } catch (e) { console.warn("無法讀取字體大小設定:", e); } }
 
 /* ---------------- 頁面切換與通用功能 ---------------- */
-function showPage(pageId) {
+// **修改 1, 2, 3**: 更新 showPage 函數以處理焦點和捲動
+function showPage(pageId, focusElementId = null) {
   document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
   const page = document.getElementById(pageId);
   if(page) page.classList.add('active');
@@ -2183,6 +2198,7 @@ function showPage(pageId) {
   const nav = document.getElementById('nav-' + pageId);
   if(nav) nav.classList.add('active');
   
+  // 根據頁面 ID 執行特定更新
   if (pageId === 'page3') buildOverviewPage();
   else if (pageId === 'page4') renderStudentOverviewTable(); 
   else if (pageId === 'page5') renderAnalysisPage();
@@ -2195,7 +2211,19 @@ function showPage(pageId) {
           : "點擊「生成回饋 Prompt」按鈕後，這裏會顯示給 AI 的完整指令...";
     }
   }
+
+  // 處理捲動和焦點
+  if (focusElementId) {
+    setTimeout(() => {
+      const targetElement = document.getElementById(focusElementId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetElement.focus({ preventScroll: true });
+      }
+    }, 150); // 延遲以確保頁面已渲染
+  }
 }
+
 function toggleAllDetails(containerId, openState) {
   const container = document.getElementById(containerId);
   if (container) container.querySelectorAll('details').forEach(detail => detail.open = openState);
@@ -2245,7 +2273,8 @@ function loadDefaultCritiques() {
     };
 }
 
-function loadCannedCritiques() {
+// **修改 1**: 建立一個新函數來處理載入和焦點
+function loadCannedCritiquesAndFocus() {
     const selectedGenres = Array.from(document.querySelectorAll('#genre-selection input:checked')).map(cb => cb.value);
     if (selectedGenres.length === 0) {
         alert('請至少選擇一種文章類型。');
@@ -2274,9 +2303,9 @@ function loadCannedCritiques() {
     isDataDirty = true;
     updateUIBasedOnAuthState();
     alert(`已成功載入 ${finalCritiques.length} 條預設評語！`);
-    showPage('page2');
-    // **修改 2**: 將焦點移至學生名單輸入框
-    setTimeout(() => document.getElementById('student-names').focus(), 100);
+    
+    // 調用 showPage 並傳遞目標 ID
+    showPage('page2', 'student-select');
 }
 
 function resetToDefaultCritiques(showConfirm = true) {
