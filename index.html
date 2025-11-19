@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>我不想努力了</title>
+  <title>我不想努力了 (懸浮導覽版)</title>
   <!-- 引入 xlsx.js 函式庫，用於處理 Excel 檔案 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <!-- 引入 Supabase.js 函式庫 -->
@@ -1005,7 +1005,7 @@
     font-size: 0.92rem;
   }
   
-  /* ===== 學生總覽 ===== */
+  /* ===== 學生總覽 (已修改) ===== */
 
   .page-header {
     display: flex;
@@ -1022,18 +1022,20 @@
     margin: 0;
   }
 
+  /* 修改：表格容器，增加最大高度和捲動 */
   #student-overview-table-wrapper {
-    overflow-x: auto;
     margin-top: 1.25rem;
     background-color: #fdfbf8;
     border-radius: 12px;
     border: 1px solid rgba(225,216,200,0.9);
     box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+    max-height: 70vh; /* 新增：限制最大高度 */
+    overflow: auto;   /* 新增：啟用內部捲動 */
   }
 
   #student-overview-table {
     width: 100%;
-    min-width: 1100px; 
+    min-width: 1200px; /* 增加最小寬度以觸發橫向捲動 */
     border-collapse: collapse;
     font-size: 0.85em;
   }
@@ -1044,6 +1046,7 @@
     padding: 0.55rem 0.75rem;
     text-align: center;
     vertical-align: top;
+    white-space: nowrap; /* 避免評分欄換行 */
   }
 
   #student-overview-table th {
@@ -1053,6 +1056,20 @@
     top: 0;
     z-index: 1;
   }
+
+  /* 新增：凍結欄位 (Sticky Columns) 的樣式 */
+  #student-overview-table th.sticky-col,
+  #student-overview-table td.sticky-col {
+    position: sticky;
+    z-index: 2;
+    background-color: #fdfbf8; /* 與表格容器背景色一致，避免透視 */
+  }
+  #student-overview-table th.sticky-col {
+    z-index: 3; /* 確保凍結的表頭在凍結的儲存格之上 */
+    background: linear-gradient(135deg, #f1ece4, #e8f0ea); /* 與表頭背景一致 */
+  }
+  .sticky-col-1 { left: 0; }
+  .sticky-col-2 { left: 60px; } /* 等於第一欄的寬度 */
 
   #student-overview-table td input[type="number"] {
     width: 60px;
@@ -1078,6 +1095,10 @@
       font-weight: bold;
       background-color: #f6f1e7;
   }
+  
+  /* 修改：調整欄位寬度 */
+  #student-overview-table th:nth-child(1), #student-overview-table td:nth-child(1) { width: 60px; min-width: 60px; } /* 學號 */
+  #student-overview-table th:nth-child(2), #student-overview-table td:nth-child(2) { width: 120px; min-width: 120px; } /* 姓名 */
 
   #student-overview-table th:nth-child(3), #student-overview-table td:nth-child(3),
   #student-overview-table th:nth-child(4), #student-overview-table td:nth-child(4),
@@ -1088,11 +1109,13 @@
     min-width: 75px;
   }
 
+  /* 修改：評語欄位現在是第9和第10欄 */
   #student-overview-table td:nth-child(9),
   #student-overview-table td:nth-child(10) {
     text-align: left;
     min-width: 300px;
     max-width: 450px;
+    white-space: normal; /* 允許評語換行 */
   }
 
   #student-overview-table textarea {
@@ -1119,6 +1142,10 @@
   }
 
   .row-missing {
+    background-color: var(--danger-bg-soft);
+  }
+  /* 讓未填寫的凍結欄也顯示不同顏色 */
+  .row-missing .sticky-col {
     background-color: var(--danger-bg-soft);
   }
 
@@ -1756,16 +1783,16 @@
               <table id="student-overview-table">
                   <thead>
                       <tr>
-                          <th>學號</th>
-                          <th>姓名</th>
+                          <th class="sticky-col sticky-col-1">學號</th>
+                          <th class="sticky-col sticky-col-2">姓名</th>
                           <th>內容</th>
                           <th>表達</th>
                           <th>結構</th>
                           <th>標點</th>
                           <th>錯別字</th>
                           <th>總分</th>
-                          <th>完整版評語</th>
                           <th>學生版評語</th>
+                          <th>完整版評語</th>
                       </tr>
                   </thead>
                   <tbody>
@@ -3425,17 +3452,19 @@ function renderStudentOverviewTable() {
     const tr = document.createElement('tr');
     if (!hasData) tr.classList.add('row-missing');
     const safeOriginalName = escapeHtmlAttr(record.originalName);
+    
+    // 修改：調換評語欄位順序，並為凍結欄位添加 class
     tr.innerHTML = `
-      <td>${record.number || ''}</td>
-      <td><a href="javascript:void(0)" onclick="jumpToStudentFromOverview('${safeOriginalName}')" style="color:#2563eb; text-decoration:underline;">${escapeHtmlAttr(record.name) || ''}</a></td>
+      <td class="sticky-col sticky-col-1">${record.number || ''}</td>
+      <td class="sticky-col sticky-col-2"><a href="javascript:void(0)" onclick="jumpToStudentFromOverview('${safeOriginalName}')" style="color:#2563eb; text-decoration:underline;">${escapeHtmlAttr(record.name) || ''}</a></td>
       <td><input type="number" value="${escapeHtmlAttr(s.content)}" data-student-name="${safeOriginalName}" data-score-type="content" oninput="handleOverviewScoreChange(this)"></td>
       <td><input type="number" value="${escapeHtmlAttr(s.expression)}" data-student-name="${safeOriginalName}" data-score-type="expression" oninput="handleOverviewScoreChange(this)"></td>
       <td><input type="number" value="${escapeHtmlAttr(s.structure)}" data-student-name="${safeOriginalName}" data-score-type="structure" oninput="handleOverviewScoreChange(this)"></td>
       <td><input type="number" value="${escapeHtmlAttr(s.punctuation)}" data-student-name="${safeOriginalName}" data-score-type="punctuation" oninput="handleOverviewScoreChange(this)"></td>
       <td><input type="number" value="${escapeHtmlAttr(s.typos)}" data-student-name="${safeOriginalName}" data-score-type="typos" oninput="handleOverviewScoreChange(this)"></td>
       <td class="total-score-cell" id="total-score-${safeOriginalName}">${hasData ? (escapeHtmlAttr(s.total) || '') : '未填'}</td>
-      <td><textarea data-student-name="${safeOriginalName}" data-field="pureFullComment" oninput="handleTableEdit(this); autoResizeTextarea(this);">${hasData ? escapeHtmlAttr(record.data.pureFullComment) : ''}</textarea></td>
       <td><textarea data-student-name="${safeOriginalName}" data-field="pureStudentComment" oninput="handleTableEdit(this); autoResizeTextarea(this);">${hasData ? escapeHtmlAttr(record.data.pureStudentComment) : ''}</textarea></td>
+      <td><textarea data-student-name="${safeOriginalName}" data-field="pureFullComment" oninput="handleTableEdit(this); autoResizeTextarea(this);">${hasData ? escapeHtmlAttr(record.data.pureFullComment) : ''}</textarea></td>
     `;
     tbody.appendChild(tr);
   };
@@ -3929,6 +3958,42 @@ function clearAllCore(doUpdate = true) {
 /* ====== 導入導出相關功能 (Excel & JSON & Word) ====== */
 /* ======================================================== */
 
+// 新增：在匯出前，從總覽表格同步最新資料到記憶體
+function syncOverviewTableToData() {
+    // 只在總覽頁面活動時才執行，避免不必要的開銷
+    if (!document.getElementById('page4').classList.contains('active')) {
+        return;
+    }
+
+    document.querySelectorAll('#student-overview-table tbody tr').forEach(tr => {
+        // 使用 textarea 的 data-student-name 來識別學生
+        const nameInput = tr.querySelector('textarea[data-student-name]');
+        if (!nameInput) return; // 如果找不到，說明可能是空行，跳過
+        
+        const studentOriginalName = nameInput.dataset.studentName;
+        const record = allStudentRecords.find(r => r.originalName === studentOriginalName);
+
+        if (record && record.data) {
+            // 更新所有分數
+            tr.querySelectorAll('input[data-score-type]').forEach(input => {
+                const scoreType = input.dataset.scoreType;
+                if (scoreType in record.data.scores) {
+                    record.data.scores[scoreType] = input.value;
+                }
+            });
+
+            // 更新評語
+            tr.querySelectorAll('textarea[data-field]').forEach(textarea => {
+                const field = textarea.dataset.field;
+                if (field in record.data) {
+                    record.data[field] = textarea.value;
+                }
+            });
+        }
+    });
+}
+
+
 function getSanitizedTopicFilename() {
     const topic = document.getElementById('topic').value.trim();
     return topic ? topic.replace(/[\\/:*?"<>|]/g, '').substring(0, 20) : '未命名文章';
@@ -3967,6 +4032,7 @@ function downloadFile(filename, content, mimeType) {
 }
 
 function exportOverviewToExcel() {
+    syncOverviewTableToData(); // 匯出前先同步資料
     if (!checkXlsxLibrary()) return;
     const savedRecords = allStudentRecords.filter(r => r.data);
     if (savedRecords.length === 0) {
@@ -3975,17 +4041,21 @@ function exportOverviewToExcel() {
     }
     savedRecords.sort((a, b) => (a.number || 999) - (b.number || 999));
     const className = savedRecords[0].data.class || document.getElementById('student-class').value || '未指定班別';
+    
     const dataToExport = savedRecords.map(record => {
         const s = record.data.scores;
         return {
             '學號': record.number, '姓名': record.name, '內容評分': s.content, '表達評分': s.expression, '結構評分': s.structure,
             '標點字體評分': s.punctuation, '錯別字加減分': s.typos, '總分': s.total, '已選評語標題': record.data.selectedTitles || '',
-            '完整版評語': record.data.pureFullComment, '學生版評語': record.data.pureStudentComment,
+            '學生版評語': record.data.pureStudentComment, '完整版評語': record.data.pureFullComment,
         };
     });
-    const wsMain = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // ** 修正部分 **
     const wb = XLSX.utils.book_new();
+    const wsMain = XLSX.utils.json_to_sheet(dataToExport);
     XLSX.utils.book_append_sheet(wb, wsMain, '學生評語總覽');
+
     const analysisData = getAnalysisData();
     if (analysisData) {
         const scoreRows = analysisData.scoreSummary.map(r => ({ 指標: r.指標, 平均分: r.平均分 == null ? '' : Number(r.平均分.toFixed(2)) }));
@@ -4027,6 +4097,7 @@ function textToWordHtmlWithLists(text) {
 }
 
 function exportOverviewToWord() {
+  syncOverviewTableToData(); // 匯出前先同步資料
   const records = allStudentRecords.filter(r => r.data);
   if (records.length === 0) {
     alert('沒有任何已儲存的學生記錄可供匯出。');
@@ -4055,6 +4126,7 @@ function exportOverviewToWord() {
 }
 
 function exportAnalysisToExcel() {
+  syncOverviewTableToData(); // 匯出前先同步資料
   if (!checkXlsxLibrary()) return;
   const data = getAnalysisData();
   if (!data) {
@@ -4083,6 +4155,7 @@ function buildTeachingHintFromAnalysis(data) {
 }
 
 function exportAnalysisToWord() {
+  syncOverviewTableToData(); // 匯出前先同步資料
   const data = getAnalysisData();
   if (!data) {
     alert('目前尚未有已儲存的學生評語，無法匯出分析。');
@@ -4096,12 +4169,17 @@ function exportAnalysisToWord() {
   downloadFile(`評語分析_${getDateTimeString()}.doc`, content, 'application/msword;charset=utf-8');
 }
 
-function downloadStudentListTemplate() {
+function downloadCritiqueTemplate() {
     if (!checkXlsxLibrary()) return;
-    const ws = XLSX.utils.json_to_sheet([{'學號 (可選)': '1', '姓名': '陳大文'},{'學號 (可選)': '2', '姓名': '張小美'}]);
+    const templateData = [
+        { id: "c1", category: "扣題與立意", type: "excellent", title: "扣題準確", strengthSummary: "能緊扣題目要求...", problemCore: "", suggestion: "", example: "文章題為...", options: "", optionsLabel: "" },
+        { id: "c2", category: "扣題與立意", type: "problem", title: "立意膚淺", strengthSummary: "", problemCore: "立意不夠深刻...", suggestion: "可思考事件背後...", example: "只停留在...", options: "", optionsLabel: "" }
+    ];
+    // ** 修正部分 **
+    const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '學生名單範本');
-    XLSX.writeFile(wb, '學生名單範本.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, '評語庫範本');
+    XLSX.writeFile(wb, '評語庫-範本.xlsx');
 }
 
 function handleStudentListImport(event) {
@@ -4136,20 +4214,16 @@ function handleStudentListImport(event) {
     reader.readAsArrayBuffer(file);
 }
 
-function downloadCritiqueTemplate() {
-    if (!checkXlsxLibrary()) return;
-    const ws = XLSX.utils.json_to_sheet([
-        { id: "c1", category: "扣題與立意", type: "excellent", title: "扣題準確", strengthSummary: "能緊扣題目要求...", problemCore: "", suggestion: "", example: "文章題為...", options: "", optionsLabel: "" },
-        { id: "c2", category: "扣題與立意", type: "problem", title: "立意膚淺", strengthSummary: "", problemCore: "立意不夠深刻...", suggestion: "可思考事件背後...", example: "只停留在...", options: "", optionsLabel: "" }
-    ]);
-    XLSX.writeFile(XLSX.utils.book_new_append_sheet(ws, '評語庫範本'), '評語庫-範本.xlsx');
-}
-
 function exportCritiquesToExcel() {
     if (!checkXlsxLibrary()) return;
     const dataToExport = collectExportData();
     if (dataToExport.length === 0) { alert('評語庫目前為空，沒有內容可以導出。'); return; }
-    XLSX.writeFile(XLSX.utils.book_new_append_sheet(XLSX.utils.json_to_sheet(dataToExport), '評語庫'), `評語庫-${getDateTimeString()}.xlsx`);
+    
+    // ** 修正部分 **
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    XLSX.utils.book_append_sheet(wb, ws, '評語庫');
+    XLSX.writeFile(wb, `評語庫-${getDateTimeString()}.xlsx`);
 }
 
 function handleCritiqueImportExcel(event) {
@@ -4211,7 +4285,12 @@ function exportProgressToExcel() {
       pureFullComment: d.pureFullComment || '', pureStudentComment: d.pureStudentComment || ''
     };
   });
-  XLSX.writeFile(XLSX.utils.book_new_append_sheet(XLSX.utils.json_to_sheet(rows), '評語進度'), `評語進度_${getDateTimeString()}.xlsx`);
+  
+  // ** 修正部分 **
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, '評語進度');
+  XLSX.writeFile(wb, `評語進度_${getDateTimeString()}.xlsx`);
 }
 
 function handleProgressImportExcel(event) {
