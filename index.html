@@ -4070,57 +4070,169 @@ function exportOverviewToWord() {
   records.sort((a, b) => (a.number || 999) - (b.number || 999));
   const topic = document.getElementById('topic').value.trim() || '未命名文章';
   const className = records[0].data.class || document.getElementById('student-class').value || '未指定班別';
-let content = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8" /><title>學生評語-${escapeHtmlAttr(topic)}</title><style>
-body{font-family:"ThePeakFontBeta","ThePeakFontBeta","FangSong",serif;font-size:12pt;line-height:1.6;}
-.meta-line{margin:4pt 0;}
-.section-title{font-weight:bold;margin:10pt 0 4pt 0;}
-.line{border-top:1px solid #000;margin:4pt 0;}
-table.score{border-collapse:collapse;margin:4pt 0;width:100%;font-size:10.5pt;}
-table.score th,table.score td{border:1px solid #000;padding:3pt 6pt;text-align:center;}
-.box{border:1px solid #000;padding:4pt 6pt;margin:4pt 0;font-size:11pt;}
-p{margin:0 0 4pt 0;}
-b,strong{font-weight:bold;}
+// 1. 定義一個簡單的排版函數，用來處理評語內容 (將【標題】同列表分開)
+function formatComment(text) {
+    if (!text) return '—';
+    
+    // 按行分割
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let html = '';
+    let inList = false;
 
-/* --- 1. 新增：評語標題樣式 (粗體 + 底線) --- */
-.comment-title {
-    font-weight: bold;
-    text-decoration: underline; /* 這就是底線 */
-    margin-top: 8pt;  /* 與上一段分開少少 */
-    margin-bottom: 2pt; /* 與下面點列保持緊密 */
-    display: block;
+    lines.forEach(line => {
+        // 偵測標題 (假設標題有 【 】 符號)
+        if (line.startsWith('【') || line.includes('做得好') || line.includes('待改進')) {
+            if (inList) { html += '</ul>'; inList = false; } // 關閉之前的列表
+            html += `<div class="comment-title">${escapeHtml(line)}</div>`;
+        } 
+        // 其他當作列表內容
+        else {
+            if (!inList) { html += '<ul>'; inList = true; } // 開啟列表
+            // 簡單判斷是否第二層 (例如前面有空格或特殊符號)，這裡預設全部第一層，Word 內可縮排變第二層
+            html += `<li>${escapeHtml(line.replace(/^[0-9\.\-\*、]+\s*/, ''))}</li>`;
+        }
+    });
+
+    if (inList) html += '</ul>'; // 最後關閉列表
+    return html;
 }
 
-/* --- 2. 列表樣式：雙層符號 (實心 -> 空心) --- */
-ul, ol {
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-left: 24pt;
-    list-style-type: disc; /* 第一層：實心圓點 */
-}
-/* 第二層縮進去變空心 */
-ul ul, ol ol, ul ol, ol ul {
-    list-style-type: circle; /* 第二層：空心圓點 */
-}
+// 2. 設定 HTML 內容
+let content = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8" />
+<title>學生評語-${escapeHtmlAttr(topic)}</title>
+<style>
+    /* 頁面設定：A4 */
+    @page { size: 210mm 297mm; margin: 2cm; }
 
-</style></head><body>`;
-  records.forEach((record, idx) => {
+    body {
+        font-family: "ThePeakFontBeta", "ThePeakFontBeta", "FangSong", serif;
+        font-size: 12pt;
+        line-height: 1.5;
+    }
+
+    /* --- 頂部資料表 (無框線，用於對齊) --- */
+    table.header-info { width: 100%; border-collapse: collapse; border: none; margin-bottom: 4pt; }
+    table.header-info td { border: none; padding: 0 10pt 0 0; text-align: left; }
+
+    /* --- 通用標題 --- */
+    .section-title { font-weight: bold; margin: 10pt 0 4pt 0; font-size: 12pt; }
+    
+    /* --- 分隔線 (虛線) --- */
+    .line { border-top: 1px dashed #000; margin: 8pt 0; }
+
+    /* --- 分數表格 (虛線 + 圓角) --- */
+    table.score {
+        width: 100%;
+        border-collapse: separate; /* 必須分開先有圓角 */
+        border-spacing: 0;
+        border: 1px dashed #000;
+        border-radius: 10px;
+        margin: 4pt 0;
+        font-size: 10.5pt;
+        overflow: hidden;
+    }
+    table.score th, table.score td {
+        border-right: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+        padding: 4pt 6pt;
+        text-align: center;
+    }
+    /* 移除表格最後的邊框以配合圓角框 */
+    table.score th:last-child, table.score td:last-child { border-right: none; }
+    table.score tr:last-child td { border-bottom: none; }
+
+    /* --- 內容框 (虛線 + 圓角) --- */
+    .box {
+        border: 1px dashed #000;
+        border-radius: 10px;
+        padding: 8pt 10pt;
+        margin: 4pt 0;
+        font-size: 11pt;
+    }
+
+    /* --- 評語內標題 (粗體 + 底線) --- */
+    .comment-title {
+        font-weight: bold;
+        text-decoration: underline;
+        margin-top: 8pt;
+        margin-bottom: 2pt;
+        display: block;
+    }
+
+    /* --- 列表設定 (雙層符號) --- */
+    ul, ol { margin: 0 0 0 24pt; padding: 0; list-style-type: disc; } /* 第一層：實心 */
+    ul ul, ol ol { list-style-type: circle; } /* 第二層：空心 */
+    li { margin-bottom: 2pt; }
+
+    b, strong { font-weight: bold; }
+</style>
+</head>
+<body>`;
+
+// 3. 迴圈生成內容
+records.forEach((record, idx) => {
     const s = record.data.scores || {};
-    const typoLines = buildTypoSectionRaw(record.data.typos || []);
+    
+    // 處理錯別字：轉為 li 格式
+    const typoContent = (record.data.typos && record.data.typos.length > 0)
+        ? `<ul>${record.data.typos.map(line => `<li>${escapeHtml(line.replace(/^\d+\.\s*/, ''))}</li>`).join('')}</ul>`
+        : "本次沒有記錄錯別字。";
+
+    // 處理評語：使用上面定義的 formatComment 函數
+    // 如果你有原本的 textToWordHtmlWithLists 也可以用，但要確保它輸出的標題是 div class="comment-title"
+    const commentContent = formatComment(record.data.pureStudentComment); 
+
     if (idx > 0) content += `<br style="page-break-before:always" />`;
+
     content += `
       <div class="student-page">
-        <p class="meta-line">題目：${escapeHtml(topic)}</p>
-        <p class="meta-line">班別：${escapeHtml(record.data.class || className)}　　學號：${escapeHtml(record.number != null ? String(record.number) : '')}　　姓名：${escapeHtml(record.name)}</p>
-        <p class="section-title">一、分數概覽</p><div class="line"></div>
-        <table class="score"><tr><th>內容</th><th>表達</th><th>結構</th><th>標點</th><th>錯別字</th><th>總分</th></tr><tr><td>${escapeHtmlAttr(s.content||'')}</td><td>${escapeHtmlAttr(s.expression||'')}</td><td>${escapeHtmlAttr(s.structure||'')}</td><td>${escapeHtmlAttr(s.punctuation||'')}</td><td>${escapeHtmlAttr(s.typos||'')}</td><td><b>${escapeHtmlAttr(s.total||'')}</b></td></tr></table>
-        <div class="line"></div><p class="section-title">二、錯別字記錄</p><div class="box">${!typoLines.length ? "本次沒有記錄錯別字。" : `<ul>${typoLines.map(line => `<ul>${escapeHtml(line.replace(/^\d+\.\s/,''))}</ul>`).join('')}</ul>`}</div>
-        <p class="section-title">三、回饋</p><div class="box">${textToWordHtmlWithLists(record.data.pureStudentComment || '—')}</div>
-      </div>`;
-  });
-  content += `</body></html>`;
-  downloadFile(`學生評語_學生版_${getDateTimeString()}.doc`, content, 'application/msword;charset=utf-8');
-}
+        
+        <div style="font-weight:bold; font-size:14pt; margin-bottom:8pt;">題目：${escapeHtml(topic)}</div>
+        
+        <table class="header-info">
+            <tr>
+                <td>班別：${escapeHtml(record.data.class || className)}</td>
+                <td>學號：${escapeHtml(record.number != null ? String(record.number) : '')}</td>
+                <td>姓名：${escapeHtml(record.name)}</td>
+            </tr>
+        </table>
 
+        <p class="section-title">一、分數概覽</p>
+        
+        <table class="score">
+            <tr>
+                <th>內容</th><th>表達</th><th>結構</th><th>標點</th><th>錯別字</th><th>總分</th>
+            </tr>
+            <tr>
+                <td>${escapeHtmlAttr(s.content||'')}</td>
+                <td>${escapeHtmlAttr(s.expression||'')}</td>
+                <td>${escapeHtmlAttr(s.structure||'')}</td>
+                <td>${escapeHtmlAttr(s.punctuation||'')}</td>
+                <td>${escapeHtmlAttr(s.typos||'')}</td>
+                <td><b>${escapeHtmlAttr(s.total||'')}</b></td>
+            </tr>
+        </table>
+
+        <div class="line"></div>
+        
+        <p class="section-title">二、錯別字記錄</p>
+        <div class="box">
+            ${typoContent}
+        </div>
+
+        <p class="section-title">三、回饋</p>
+        <div class="box">
+            ${commentContent}
+        </div>
+
+      </div>`;
+});
+
+content += `</body></html>`;
+
+downloadFile(`學生評語_學生版_${getDateTimeString()}.doc`, content, 'application/msword;charset=utf-8');
 function exportAnalysisToExcel() {
   if (!checkXlsxLibrary()) return;
   const data = getAnalysisData();
