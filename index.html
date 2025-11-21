@@ -4081,20 +4081,25 @@ table.score th,table.score td{border:1px solid #000;padding:3pt 6pt;text-align:c
 p{margin:0 0 4pt 0;}
 b,strong{font-weight:bold;}
 
-/* --- 以下係修改咗嘅點列設定 --- */
+/* --- 1. 新增：評語標題樣式 (粗體 + 底線) --- */
+.comment-title {
+    font-weight: bold;
+    text-decoration: underline; /* 這就是底線 */
+    margin-top: 8pt;  /* 與上一段分開少少 */
+    margin-bottom: 2pt; /* 與下面點列保持緊密 */
+    display: block;
+}
 
-/* 第一層：設定為實心圓點 (●) */
+/* --- 2. 列表樣式：雙層符號 (實心 -> 空心) --- */
 ul, ol {
     margin-top: 0;
     margin-bottom: 0;
     padding-left: 24pt;
-    list-style-type: disc; 
+    list-style-type: disc; /* 第一層：實心圓點 */
 }
-
-/* 第二層：設定為空心圓點 (○) 
-   (無論係 ul 入面有 ul，定係 ol 入面有 ol，總之縮入去嗰層就變空心) */
+/* 第二層縮進去變空心 */
 ul ul, ol ol, ul ol, ol ul {
-    list-style-type: circle;
+    list-style-type: circle; /* 第二層：空心圓點 */
 }
 
 </style></head><body>`;
