@@ -2084,6 +2084,18 @@ const modal = {
 function confirmUI(message, onOk) {
   modal.show(message).then(ok => { if (ok && typeof onOk === 'function') onOk(); });
 }
+  function syncToCloud() {
+  showLoading("同步中…");
+  saveToSupabase()
+    .then(() => {
+      showSuccess("已成功同步至雲端！");
+    })
+    .catch(err => {
+      console.error(err);
+      showError("同步失敗，請稍後再試。");
+    });
+}
+
 
 // --- Supabase 核心功能 ---
 
