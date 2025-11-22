@@ -4568,6 +4568,18 @@ function generateStudentWord() {
     if (!aiData) return;
     downloadFile(`AI回饋_${getSanitizedTopicFilename()}_學生版.doc`, _buildAiFeedbackWordHtml(aiData, 'student'), 'application/msword;charset=utf-8');
 }
+  <script>
+function scrollToSection(event, sectionId) {
+    event.preventDefault();
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+
+    // 平滑滾動
+    target.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
 </script>
 
 </body>
