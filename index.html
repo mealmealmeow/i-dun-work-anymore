@@ -2022,10 +2022,6 @@
     <a href="#grading-section-typo-score" class="floating-nav-btn" onclick="scrollToSection(event, 'grading-section-typo-score')" data-tooltip="錯別字/評分">📝</a>
     <a href="#grading-section-feedback" class="floating-nav-btn" onclick="scrollToSection(event, 'grading-section-feedback')" data-tooltip="學生評語">📄</a>
     <a href="#grading-section-save" class="floating-nav-btn" onclick="scrollToSection(event, 'grading-section-save')" data-tooltip="儲存">💾</a>
-  <a href="javascript:void(0)" 
-   class="floating-nav-btn" 
-   onclick="syncToCloud()" 
-   data-tooltip="同步雲端">☁️</a>
   </nav>
 
 <script>
@@ -2084,18 +2080,6 @@ const modal = {
 function confirmUI(message, onOk) {
   modal.show(message).then(ok => { if (ok && typeof onOk === 'function') onOk(); });
 }
-  function syncToCloud() {
-  showLoading("同步中…");
-  saveToSupabase()
-    .then(() => {
-      showSuccess("已成功同步至雲端！");
-    })
-    .catch(err => {
-      console.error(err);
-      showError("同步失敗，請稍後再試。");
-    });
-}
-
 
 // --- Supabase 核心功能 ---
 
@@ -4567,18 +4551,6 @@ function generateStudentWord() {
     const aiData = _getAIFeedbackData();
     if (!aiData) return;
     downloadFile(`AI回饋_${getSanitizedTopicFilename()}_學生版.doc`, _buildAiFeedbackWordHtml(aiData, 'student'), 'application/msword;charset=utf-8');
-}
-  <script>
-function scrollToSection(event, sectionId) {
-    event.preventDefault();
-    const target = document.getElementById(sectionId);
-    if (!target) return;
-
-    // 平滑滾動
-    target.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
 }
 </script>
 
