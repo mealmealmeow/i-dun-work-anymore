@@ -13,6 +13,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- 引入 Chart.js 圖表庫 -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- [v18.0] PDF 生成引擎 (pdfmake) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
   
   <!-- 引入 Google Fonts 的 LXGW WenKai TC (霞鶩文楷 TC) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3733,6 +3736,153 @@ header h1 {
     color: #fff;
     transform: rotate(30deg);
 }
+/* ========================================= */
+/* === [v19.3] 雜誌風報告 (Magazine A4) === */
+/* ========================================= */
+
+#print-container { display: none; }
+
+@media print {
+    body > :not(#print-container) { display: none !important; }
+    #print-container { display: block !important; }
+    @page {
+        size: A4 portrait;
+        margin: 0; /* 無邊距列印，由 CSS 控制內距 */
+    }
+}
+
+.report-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    /* 恢復舒適的字體大小 */
+    font-size: 12pt; 
+    font-family: "LXGW WenKai TC", serif;
+    color: #444;
+    position: relative;
+    page-break-after: always;
+    
+    /* 雜誌風內距 */
+    padding: 20mm; 
+    box-sizing: border-box;
+}
+
+/* 裝飾性邊框 (像證書) */
+.report-page::before {
+    content: "";
+    position: absolute;
+    top: 10mm; left: 10mm; right: 10mm; bottom: 10mm;
+    border: 1px solid #ddd;
+    pointer-events: none;
+}
+
+/* 頁頭：極簡大氣 */
+.report-header {
+    margin-bottom: 30px;
+    border-bottom: 2px solid #5A8F7B; /* 主題色線條 */
+    padding-bottom: 15px;
+    position: relative;
+}
+
+.report-title-block h1 {
+    font-size: 24pt;
+    font-weight: normal; /* 文青風通常不用太粗 */
+    color: #2c3e50;
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+.report-sub-title {
+    font-size: 14pt;
+    color: #5A8F7B;
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+.report-meta-grid {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 20px;
+    position: absolute;
+    right: 0;
+    bottom: 15px;
+    text-align: right;
+    font-size: 10pt;
+    color: #888;
+    font-family: sans-serif;
+}
+
+/* 歷程圖區域 */
+.chart-section {
+    margin-bottom: 30px;
+    height: 200px; /* 固定高度 */
+    width: 100%;
+    border: 1px dashed #eee; /* 輕盈的框 */
+    border-radius: 8px;
+    padding: 10px;
+    box-sizing: border-box;
+    background: #fafafa;
+}
+
+/* 分數表 (簡約風格) */
+.score-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+}
+.score-table th {
+    text-align: left;
+    color: #999;
+    font-weight: normal;
+    font-size: 10pt;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+.score-table td {
+    padding: 10px 0;
+    font-size: 13pt;
+    border-bottom: 1px solid #f9f9f9;
+}
+.score-table .total-row td {
+    font-weight: bold;
+    color: #5A8F7B;
+    font-size: 16pt;
+    border-bottom: none;
+    padding-top: 15px;
+}
+
+/* 評語區 (雜誌專欄感) */
+.comment-section {
+    margin-top: 20px;
+}
+.comment-label {
+    background: #2c3e50;
+    color: #fff;
+    padding: 4px 12px;
+    font-size: 11pt;
+    display: inline-block;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+.comment-content {
+    line-height: 1.8; /* 增加行距，閱讀感更佳 */
+    text-align: justify;
+    font-size: 12pt;
+    white-space: pre-wrap;
+}
+
+/* 頁尾 */
+.report-footer {
+    position: absolute;
+    bottom: 14mm;
+    left: 20mm; right: 20mm;
+    text-align: center;
+    font-size: 9pt;
+    color: #ccc;
+    border-top: 1px solid #f5f5f5;
+    padding-top: 5px;
+}
 </style>
 
 </head>
@@ -4045,8 +4195,11 @@ header h1 {
     <!-- 下面是操作區 -->
     <div class="btn-group" style="margin-bottom: 1rem;">
         <!-- 保留 Excel 匯入功能給 Page 2 直接使用 -->
-        <label class="light-btn brown" for="import-student-list" style="cursor: pointer;">匯入名單 (Excel)</label>
-        <input type="file" id="import-student-list" accept=".xlsx, .xls" style="display:none;">
+       
+        <!-- [v19.2] 快速班級管理按鈕 -->
+<button class="light-btn" onclick="showPage('page8')" style="margin-left: 5px;">
+    🏫 管理班級
+</button>
     </div>
 
     <div class="input-group">
@@ -4127,9 +4280,13 @@ header h1 {
                 <div class="panel" style="margin-top: 1rem;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h3>學生版本（點列式）</h3>
-                        <div class="panel-actions">
-                            <button class="action-btn" onclick="copyOutput('student-report-output', this)">複製</button>
-                        </div>
+                       <div class="panel-actions">
+    <!-- [v19.0] 新增：PDF 預覽按鈕 (紫色) -->
+    <button class="action-btn" onclick="printReport('single')" style="background:#7986cb; border:none; margin-right:5px;" title="生成精美 A4 報告">
+        🖨️ 預覽 PDF
+    </button>
+    <button class="action-btn" onclick="copyOutput('student-report-output', this)">複製</button>
+</div>
                     </div>
                     <textarea id="student-report-output" placeholder="此處自動生成學生版本..." oninput="handleManualEdit('student')"></textarea>
                 </div>
@@ -4266,8 +4423,14 @@ header h1 {
           <div class="page-header">
             <h2>學生評語記錄總覽</h2>
             <div class="btn-group">
+                <!-- [v19.0] 新增：全班列印按鈕 -->
+<button class="action-btn" onclick="printReport('batch')" style="background:#7986cb; border:none;">
+    🖨️ 列印全班 PDF
+</button>
               <button class="action-btn" onclick="exportOverviewToExcel()">📊 匯出為 Excel</button>
               <button class="secondary-btn" onclick="exportOverviewToWord()">📄 匯出學生版 Word</button>
+              <!-- 在 #page4 .btn-group 裡面加入 -->
+<button class="action-btn" onclick="generatePrettyPDF()" style="background:#5A8F7B;">📄 學生報告 (PDF)</button>
               <button class="light-btn brown" onclick="exportProgressToExcel()">📊 匯出進度</button>
               <label class="light-btn" for="import-progress-excel" style="cursor:pointer;">📂 匯入進度</label>
               <input type="file" id="import-progress-excel" accept=".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
@@ -4824,7 +4987,10 @@ header h1 {
         </div>
     </div>
 </div>
-
+<!-- [v19.0] 列印專用容器 (平時隱藏) -->
+<div id="print-container">
+    <!-- JS 會在這裡動態生成 .report-page -->
+</div>
 <script>
     (function() {
         const gate = document.getElementById('login-gate');
@@ -8964,6 +9130,116 @@ function _buildAiFeedbackWordHtml(aiData, mode) {
             .teacher-tag { position: absolute; top: -12px; left: 10px; background: #fff; border: 1px solid #000; padding: 2px 8px; font-size: 10pt; font-weight: bold; }
             ul { margin: 3pt 0; padding-left: 1.5em; }
             .keep-together { page-break-inside: avoid; }
+           
+            
+            /* ========================================= */
+/* === [v18.0] PDF 報告引擎樣式 (Print) === */
+/* ========================================= */
+
+@media print {
+    /* 1. 隱藏所有網頁介面 */
+    body * { visibility: hidden; }
+    
+    /* 2. 只顯示報告容器 */
+    #print-report-area, #print-report-area * {
+        visibility: visible;
+    }
+    #print-report-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+
+    /* 3. A4 紙張設定 (窄邊距) */
+    @page {
+        size: A4;
+        margin: 1.5cm 1cm; /* 上下1.5cm, 左右1cm */
+    }
+
+    /* 4. 強制分頁 */
+    .report-page {
+        page-break-after: always;
+        min-height: 95vh; /* 確保佔滿一頁 */
+        position: relative;
+        font-family: "LXGW WenKai TC", serif; /* 報告字體 */
+        color: #000;
+    }
+    
+    /* 5. 確保背景色能被列印 (重要！否則能量條會變白) */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* 報告內部樣式 (平時隱藏) */
+#print-report-area {
+    display: none; /* 平時不顯示在螢幕 */
+}
+
+/* 報告 Header */
+.rpt-header {
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+.rpt-title { font-size: 18pt; font-weight: bold; }
+.rpt-meta { font-size: 10pt; text-align: right; line-height: 1.4; }
+
+/* 能量條區域 */
+.rpt-scores {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 兩欄排版 */
+    gap: 15px 30px;
+    margin-bottom: 25px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+.rpt-score-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10pt;
+}
+.rpt-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.rpt-bar-fill {
+    height: 100%;
+    background: #5A8F7B; /* 文青綠 */
+}
+
+/* 評語內文 */
+.rpt-body {
+    font-size: 11pt;
+    line-height: 1.4;
+    text-align: justify;
+}
+.rpt-section { margin-bottom: 15px; }
+.rpt-section-title {
+    font-weight: bold;
+    font-size: 12pt;
+    margin-bottom: 5px;
+    border-left: 4px solid #5A8F7B;
+    padding-left: 8px;
+    background: #f0f7f4;
+}
+.rpt-point {
+    margin-bottom: 4px; /* 緊湊排版 */
+    padding-left: 1.2em;
+    text-indent: -1.2em;
+}
         </style>
     `;
 
@@ -11080,16 +11356,18 @@ function toggleAllSetupStudents(checked) {
 }
 
 /* ================================================= */
-/* === [v16.1 Fix] Page 1 啟動批改 (純班級版) === */
+/* === [v18.0] 開新專案核心 (Safe Create & Sync) === */
 /* ================================================= */
 
 async function startGradingWithSetup(actionType) {
+    // 1. 驗證輸入
     const topicInput = document.getElementById('topic');
     if (!topicInput || !topicInput.value.trim()) {
         alert("請輸入作文題目！");
         if(topicInput) topicInput.focus();
         return;
     }
+    const topicTitle = topicInput.value.trim();
 
     const select = document.getElementById('setup-class-select');
     if (!select || !select.value) {
@@ -11097,104 +11375,125 @@ async function startGradingWithSetup(actionType) {
         return;
     }
 
-    // 1. 檢查有無揀學生
     const checkedCards = document.querySelectorAll('#setup-student-checklist .student-check-card.checked');
     if (checkedCards.length === 0) {
         alert("⚠️ 請至少勾選一位學生！");
         return;
     }
 
-    // 2. 準備數據
-    const sourceClass = select.options[select.selectedIndex].dataset.className || '';
-    window.currentClassId = select.value;
-    window.currentProjectType = 'cloud'; // 強制雲端模式
-    
-    // 初始化變數
-    allStudentRecords = [];
-    let rawStudentList = "";
-    
-    // 3. 處理學生名單
-    const tempRecords = [];
-    checkedCards.forEach(card => {
-        const info = card.dataset.info; // "01-陳大文"
-        const dbId = card.dataset.dbId; // Database ID
-        const p = parseStudentName(info);
+    // 2. 鎖定按鈕
+    const saveBtn = event.target;
+    const orgText = saveBtn.textContent;
+    saveBtn.textContent = "正在建立雲端檔案..."; 
+    saveBtn.disabled = true;
 
-        rawStudentList += info + "\n";
+    try {
+        if (!currentUser) throw new Error("必須登入才能建立專案。");
 
-        tempRecords.push({
-            number: p.number,
-            name: p.name,
-            originalName: p.originalName,
-            dbId: dbId,
-            data: null
-        });
-    });
+        const classId = select.value;
+        const className = select.options[select.selectedIndex].dataset.className || '';
 
-    allStudentRecords = tempRecords;
-    sortStudents(allStudentRecords);
-
-    // 4. 建立雲端專案 (Assignments)
-    if (currentUser) {
-        // 改變按鈕狀態
-        const saveBtn = event.target; // 獲取點擊的按鈕
-        const orgText = saveBtn.textContent;
-        saveBtn.textContent = "正在建立..."; saveBtn.disabled = true;
-
-        try {
-            // 使用 upsert 建立或獲取專案
-            const { data: newAssign, error: assignError } = await supabaseClient
-                .from('assignments')
-                .upsert({
-                    user_id: currentUser.id,
-                    class_id: window.currentClassId,
-                    title: topicInput.value.trim(),
-                    created_at: new Date().toISOString()
-                }, { onConflict: 'class_id, title' })
-                .select()
-                .single();
-
-            if (assignError) throw assignError;
-
-            window.currentAssignmentId = newAssign.id;
-            console.log("✅ 專案已建立，ID:", newAssign.id);
-
-            // 刷新 Dashboard
-            if (typeof loadDashboard === 'function') {
-                loadDashboard();
-                setTimeout(() => loadDashboard(), 800);
-            }
-
-        } catch (err) {
-            console.error("建立專案錯誤:", err);
-            // 錯誤不阻擋進入批改，只係 Sync 唔到
-        } finally {
-            saveBtn.textContent = orgText; saveBtn.disabled = false;
-        }
-    }
-
-    // 5. 同步 UI 到 Page 2
-    if(document.getElementById('student-names')) document.getElementById('student-names').value = rawStudentList;
-    if(document.getElementById('student-class')) document.getElementById('student-class').value = sourceClass;
-    
-    // 同步 Page 2 題目欄 (v11.8 功能)
-    if(document.getElementById('page2-topic-display')) document.getElementById('page2-topic-display').value = topicInput.value.trim();
-
-    updateStudentDropdown();
-    updateHeaderInfo();
-
-    // 6. 跳轉
-    if (actionType === 'default') {
-        loadCannedCritiquesAndFocus(); // 載入罐頭並跳轉
-    } else {
-        // 手動模式：清空評語庫，直接跳轉
-        const cData = document.getElementById('critique-data');
-        if(cData) cData.innerHTML = '';
-        buildChecklist();
-        buildOverviewPage();
+        // 🔥 3. 安全檢查：確保題目不重複 (防止覆蓋舊檔)
+        const { data: existing, error: checkError } = await supabaseClient
+            .from('assignments')
+            .select('id')
+            .eq('class_id', classId)
+            .eq('title', topicTitle)
+            .maybeSingle();
         
-        showPage('page2', 'student-select');
-        if(typeof showToast === 'function') showToast(`已建立作業：${allStudentRecords.length} 位學生`, "success");
+        if (checkError) throw checkError;
+
+        if (existing) {
+            // 如果撞名，停止建立，彈出警告
+            alert(`⚠️ 建立失敗：\n班級「${className}」已經有一份名為「${topicTitle}」的作業。\n\n請修改題目名稱 (例如加入日期) 以開立新檔案，避免覆蓋舊資料。`);
+            saveBtn.textContent = orgText; 
+            saveBtn.disabled = false;
+            return; // 終止
+        }
+
+        // 🔥 4. 執行 INSERT (全新建立)
+        const { data: newAssign, error: createError } = await supabaseClient
+            .from('assignments')
+            .insert([{
+                user_id: currentUser.id,
+                class_id: classId,
+                title: topicTitle,
+                created_at: new Date().toISOString(),
+                settings: { critiques: collectExportData() } // 將目前的評語庫作為此作業的預設
+            }])
+            .select()
+            .single();
+
+        if (createError) throw createError;
+
+        // 5. 設定全域狀態 (Reset Everything)
+        window.currentAssignmentId = newAssign.id; // 鎖定新 ID
+        window.currentClassId = classId;
+        window.currentProjectType = 'cloud';
+        
+        // 6. 準備學生名單 (記憶體)
+        let tempRecords = [];
+        let rawStudentList = "";
+        
+        // 為了 ID 對照，先讀一次 DB 學生表
+        const { data: dbStudents } = await supabaseClient.from('students').select('id, name, student_number').eq('class_id', classId);
+        const dbMap = {}; // name -> id
+        if(dbStudents) dbStudents.forEach(s => dbMap[s.name] = s.id);
+
+        checkedCards.forEach(card => {
+            const info = card.dataset.info;
+            const p = parseStudentName(info);
+            rawStudentList += info + "\n";
+            
+            // 嘗試匹配 DB ID
+            let sId = card.dataset.dbId;
+            if(!sId && dbMap[p.name]) sId = dbMap[p.name];
+
+            tempRecords.push({
+                number: p.number, name: p.name, originalName: p.originalName,
+                dbId: sId,
+                data: { // 預設為空的 Data Template
+                    class: className, topic: topicTitle, uniqueComment: '',
+                    scores: { content:'', expression:'', structure:'', punctuation:'', typos:'', total:'' },
+                    typos: [], checkedCritiques: [], fullComment: '', studentComment: '', pureStudentComment: ''
+                }
+            });
+        });
+
+        allStudentRecords = tempRecords;
+        sortStudents(allStudentRecords);
+
+        // 7. 同步 UI
+        if(document.getElementById('student-names')) document.getElementById('student-names').value = rawStudentList;
+        if(document.getElementById('student-class')) document.getElementById('student-class').value = className;
+        if(document.getElementById('page2-topic-display')) document.getElementById('page2-topic-display').value = topicTitle;
+
+        updateStudentDropdown();
+        updateHeaderInfo();
+
+        // 8. 刷新 Dashboard (讓新專案即時出現)
+        if (typeof loadDashboard === 'function') loadDashboard();
+
+        // 9. 跳轉
+        if (actionType === 'default') {
+            loadCannedCritiquesAndFocus();
+        } else {
+            // 手動評語模式：清空評語區
+            const cData = document.getElementById('critique-data');
+            if(cData) cData.innerHTML = '';
+            buildChecklist();
+            buildOverviewPage();
+            
+            showPage('page2', 'student-select');
+            if(typeof showToast === 'function') showToast("✅ 全新作業檔案已建立", "success");
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("建立失敗：" + err.message);
+    } finally {
+        saveBtn.textContent = orgText; 
+        saveBtn.disabled = false;
     }
 }
 
@@ -12414,6 +12713,321 @@ document.addEventListener('DOMContentLoaded', () => {
     if(p2Topic) p2Topic.addEventListener('input', (e) => syncAllTopics(e.target.value));
     // AI Topic 已經有自己的監聽，這裡只需確保 P2 變更時會推過去
 });
+/* ========================================= */
+/* === [v19.1] 報告生成 (圖表顯形版) === */
+/* ========================================= */
+
+/* ========================================= */
+/* === [v19.3] 報告引擎 (歷程圖 + 雜誌風) === */
+/* ========================================= */
+
+async function printReport(mode) {
+    const container = document.getElementById('print-container');
+    if (!container) return;
+
+    if (typeof showToast === 'function') showToast("📊 正在分析歷史數據...", "info");
+
+    // 1. 自動同步 (確保當前數據最新)
+    if (currentUser && document.getElementById('page2').classList.contains('active')) {
+        await saveCurrentStudentData('cloud_silent');
+    }
+
+    // 2. 篩選目標學生
+    let targets = [];
+    if (mode === 'single') {
+        const currentName = document.getElementById('student-select').value;
+        const record = allStudentRecords.find(r => r.originalName === currentName);
+        if (!record) { alert("請先選擇一位學生！"); return; }
+        targets = [record];
+    } else {
+        targets = allStudentRecords.filter(r => r.data && (r.data.scores.total || r.data.pureStudentComment));
+        targets.sort((a, b) => (a.number || 999) - (b.number || 999));
+        if (targets.length === 0) { alert("沒有資料可列印。"); return; }
+        if (!confirm(`即將生成 ${targets.length} 份報告 (含歷程圖)，確定嗎？`)) return;
+    }
+
+    const className = document.getElementById('student-class').value || '未命名班級';
+    const topic = document.getElementById('topic').value || '未命名題目';
+    const dateStr = new Date().toLocaleDateString('zh-HK');
+
+    container.innerHTML = '';
+    const chartsToRender = []; // 待繪製的圖表清單
+
+    // 3. 逐個處理學生 (Async Loop 讀取歷史)
+    // 為了不卡死，我們用 Promise.all 平行讀取，但要注意 Supabase Rate Limit，這裡量少應該還好
+    
+    for (let i = 0; i < targets.length; i++) {
+        const student = targets[i];
+        const d = student.data || {};
+        const s = d.scores || {content:0, expression:0, structure:0, punctuation:0, typos:0, total:0};
+        const comment = d.pureStudentComment || d.studentComment || "（暫無評語）";
+        const canvasId = `history-chart-${i}`;
+
+        // --- 3a. 讀取該生的歷史成績 ---
+        let historyData = [];
+        if (student.dbId) {
+            const { data: hist } = await supabaseClient
+                .from('results')
+                .select('total_score, assignments!inner(title, created_at)')
+                .eq('student_id', student.dbId)
+                .order('assignments(created_at)', { ascending: true }); // 按時間排
+            
+            if (hist) {
+                // 整理數據，確保按時間排序
+                historyData = hist
+                    .map(h => ({
+                        title: h.assignments.title,
+                        score: h.total_score,
+                        date: new Date(h.assignments.created_at)
+                    }))
+                    .sort((a, b) => a.date - b.date); // 二次確保排序
+            }
+        }
+
+        // --- 3b. 生成 HTML (雜誌風) ---
+        const pageHtml = `
+        <div class="report-page">
+            <div class="report-header">
+                <div class="report-title-block">
+                    <h1>${escapeHtml(student.name)}</h1>
+                    <div class="report-sub-title">${escapeHtml(topic)}</div>
+                </div>
+                <div class="report-meta-grid">
+                    <div>班別：${escapeHtml(className)}</div>
+                    <div>學號：${student.number || '-'}</div>
+                    <div>日期：${dateStr}</div>
+                </div>
+            </div>
+
+            <!-- 歷程圖 (如果有歷史數據) -->
+            <div class="chart-section" style="display: ${historyData.length > 1 ? 'block' : 'none'}">
+                <canvas id="${canvasId}"></canvas>
+            </div>
+
+            <!-- 分數表 -->
+            <table class="score-table">
+                <thead>
+                    <tr><th>內容 (40)</th><th>表達 (30)</th><th>結構 (20)</th><th>標點 (10)</th><th>錯別字</th><th>總分</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${s.content||'-'}</td>
+                        <td>${s.expression||'-'}</td>
+                        <td>${s.structure||'-'}</td>
+                        <td>${s.punctuation||'-'}</td>
+                        <td style="color:#c86a5a;">${s.typos||'-'}</td>
+                        <td style="font-weight:bold; color:#5A8F7B; font-size:14pt;">${s.total||'-'}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- 評語區 -->
+            <div class="comment-section">
+                <div class="comment-label">教師評語</div>
+                <div class="comment-content">${formatReportComment(comment)}</div>
+            </div>
+
+            <div class="report-footer">
+                ${escapeHtml(className)} | ${escapeHtml(student.name)} | 學習歷程報告
+            </div>
+        </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', pageHtml);
+
+        // --- 3c. 準備繪圖數據 ---
+        if (historyData.length > 1) {
+            chartsToRender.push({
+                id: canvasId,
+                labels: historyData.map(h => h.title), // X軸：題目
+                data: historyData.map(h => h.score)    // Y軸：分數
+            });
+        }
+    }
+
+    // 4. 繪製圖表 (關閉動畫)
+    setTimeout(() => {
+        chartsToRender.forEach(c => {
+            const ctx = document.getElementById(c.id).getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: c.labels,
+                    datasets: [{
+                        label: '得分走勢',
+                        data: c.data,
+                        borderColor: '#5A8F7B', // 文青綠
+                        backgroundColor: 'rgba(90, 143, 123, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#5A8F7B',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3 // 曲線平滑度
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // 🔥 關鍵：無動畫，列印即出
+                    scales: {
+                        y: { beginAtZero: true, suggestedMax: 100, grid: { color: '#eee' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { 
+                        legend: { display: false },
+                        title: { display: true, text: '個人寫作成績走勢', font: { family: "'LXGW WenKai TC'" }, color: '#999', align: 'start' }
+                    }
+                }
+            });
+        });
+
+        // 5. 喚醒列印
+        setTimeout(() => {
+            window.print();
+        }, 800);
+
+    }, 200);
+}
+
+// [Helper] 格式化評語 (如之前已加可忽略)
+function formatReportComment(text) {
+    if (!text) return "（暫無評語）";
+    return text.split('\n').map(line => {
+        const safeLine = escapeHtml(line);
+        if (line.trim().startsWith('【')) return `<strong>${safeLine}</strong>`;
+        return safeLine;
+    }).join('<br>');
+}
+
+/* ================================================= */
+/* === [v18.0] PDF 報告引擎 (Pretty PDF Engine) === */
+/* ================================================= */
+
+function generatePrettyPDF() {
+    // 檢查資料
+    const records = allStudentRecords.filter(r => r.data && (r.data.scores.total || r.data.pureStudentComment));
+    if (records.length === 0) { alert('沒有已批改的學生資料可供匯出。'); return; }
+    
+    // 排序
+    records.sort((a, b) => (a.number || 999) - (b.number || 999));
+
+    const topic = document.getElementById('topic').value.trim() || '未命名文章';
+    const className = document.getElementById('student-class').value || '未指定班別';
+    const dateStr = new Date().toLocaleDateString('zh-HK');
+
+    // 定義 PDF 內容容器
+    const docDefinition = {
+        pageSize: 'A4',
+        pageMargins: [28, 56, 28, 40], // [左, 上, 右, 下] (1cm ≈ 28pt)
+        content: [],
+        styles: {
+            header: { fontSize: 14, bold: true, margin: [0, 0, 0, 10] },
+            subHeader: { fontSize: 10, color: '#555', margin: [0, 0, 0, 20] },
+            scoreLabel: { fontSize: 9, color: '#666' },
+            scoreValue: { fontSize: 10, bold: true },
+            commentTitle: { fontSize: 11, bold: true, color: '#2c4c3f', margin: [0, 10, 0, 2] },
+            commentBody: { fontSize: 10.5, lineHeight: 1.3, margin: [0, 0, 0, 8] }
+        },
+        defaultStyle: {
+            font: 'Roboto' // pdfmake 預設字體，中文需要 vfs_fonts 支援 (如果無中文字體包，可能會亂碼，稍後說明)
+        }
+    };
+
+    // 生成每一頁
+    records.forEach((r, index) => {
+        const s = r.data.scores;
+        
+        // 1. 頁首 (Header)
+        docDefinition.content.push(
+            { text: `作文評估報告：${topic}`, style: 'header', alignment: 'center' },
+            { 
+                columns: [
+                    { text: `班別：${r.data.class || className}`, width: '*' },
+                    { text: `學生：${r.name} (${r.number || '-'})`, width: '*', alignment: 'center' },
+                    { text: `日期：${dateStr}`, width: '*', alignment: 'right' }
+                ],
+                style: 'subHeader'
+            },
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 535, y2: 0, lineWidth: 1, lineColor: '#ddd' }], margin: [0, 0, 0, 15] }
+        );
+
+        // 2. 能量條儀表板 (Dashboard)
+        // 為了排版整齊，我們用 Table 模擬 Grid
+        const scoreItems = [
+            { label: '內容 (40)', val: s.content, max: 10 }, // 假設 10 分制，可自行調整
+            { label: '表達 (30)', val: s.expression, max: 10 },
+            { label: '結構 (20)', val: s.structure, max: 10 },
+            { label: '標點 (10)', val: s.punctuation, max: 10 }
+        ];
+
+        const scoreColumns = scoreItems.map(item => {
+            const score = parseFloat(item.val) || 0;
+            const pct = Math.min(100, (score / item.max) * 100); // 計算百分比
+            
+            // 繪製能量條 (用 Table Cell 背景色模擬)
+            return [
+                { text: item.label, style: 'scoreLabel' },
+                { text: `${item.val || '-'}`, style: 'scoreValue' },
+                {
+                    table: {
+                        widths: [`${pct}%`, `${100-pct}%`],
+                        body: [
+                            [
+                                { text: '', fillColor: '#5A8F7B', height: 4, border: [false, false, false, false] },
+                                { text: '', fillColor: '#eee', height: 4, border: [false, false, false, false] }
+                            ]
+                        ]
+                    },
+                    layout: 'noBorders',
+                    margin: [0, 2, 10, 0] // 右邊留白
+                }
+            ];
+        });
+
+        // 加入總分與錯別字
+        docDefinition.content.push({
+            columns: [
+                ...scoreColumns.map(c => ({ stack: c, width: '*' })),
+                { 
+                    stack: [
+                        { text: '錯別字', style: 'scoreLabel' }, 
+                        { text: `${s.typos || '-'}`, style: 'scoreValue', color: '#c86a5a' }
+                    ], width: 'auto' 
+                },
+                { 
+                    stack: [
+                        { text: '總分', style: 'scoreLabel', alignment: 'right' }, 
+                        { text: `${s.total || '-'}`, fontSize: 16, bold: true, color: '#5A8F7B', alignment: 'right' }
+                    ], width: '*' 
+                }
+            ],
+            margin: [0, 0, 0, 20]
+        });
+
+        // 3. 評語內文 (Body)
+        // 解析純文字評語，將其格式化
+        const rawComment = r.data.pureStudentComment || '(暫無評語)';
+        const lines = rawComment.split('\n').filter(l => l.trim());
+        
+        lines.forEach(line => {
+            // 簡單判斷標題 (例如 "【優點】" 或 "問題：")
+            if (line.match(/^[【\[].*[】\]]$/) || line.includes('：')) {
+                docDefinition.content.push({ text: line, style: 'commentTitle' });
+            } else {
+                docDefinition.content.push({ text: line, style: 'commentBody' });
+            }
+        });
+
+        // 4. 強制分頁 (除了最後一頁)
+        if (index < records.length - 1) {
+            docDefinition.content.push({ text: '', pageBreak: 'after' });
+        }
+    });
+
+    // 下載
+    pdfMake.createPdf(docDefinition).download(`評估報告_${className}_${topic}.pdf`);
+}
 
 </script> <!-- 呢個係原本全個檔案唯一的結尾，保留佢 -->
 
